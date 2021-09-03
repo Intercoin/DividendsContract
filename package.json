@@ -1,0 +1,19 @@
+{
+  "name": "dividendscontract",
+  "version": "1.0.0",
+  "description": "Operates pools for distributing dividends to reward investors staking ERC20 token or liquidity pool tokens.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Intercoin/DividendsContract.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Intercoin/DividendsContract/issues"
+  },
+  "homepage": "https://github.com/Intercoin/DividendsContract#readme"
+}
