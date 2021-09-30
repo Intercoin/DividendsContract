@@ -590,6 +590,7 @@ contract ITRToken is Ownable, IERC777, IERC20, IHookCaller {
         onlyAuthority() 
     {
         __move(operator, from, to, amount, userData, operatorData);
+        _callTokensReceived(operator, from, to, amount, userData, operatorData, false);
     }
     
     function _addAuthority(
@@ -611,8 +612,19 @@ contract ITRToken is Ownable, IERC777, IERC20, IHookCaller {
     
     function bulkTransfer(address[] memory _recipients, uint256[] memory _amounts) public {
         for (uint256 i = 0; i < _recipients.length; i++) {
-            operatorSend(_msgSender(), _recipients[i], _amounts[i], "", "");
+            __move(_msgSender(), _msgSender(), _recipients[i], _amounts[i], "", "");
         }
     }
+    
+    function mintAndStake(address stakeContract, address[] memory _recipients, uint256[] memory _amounts) public onlyOwner() {
+        for (uint256 i = 0; i < _recipients.length; i++) {
+            // __move(_msgSender(), _msgSender(), _recipients[i], _amounts[i], "", "");     // from sender to recipient
+            // __move(_msgSender(), _recipients[i], stakeContract, _amounts[i], "", "");    // from recipient to stake contract
+            
+            __move(_msgSender(), _msgSender(), stakeContract, _amounts[i], "", "");
+            _callTokensReceived(_msgSender(), _recipients[i], stakeContract, _amounts[i], "", "", true);
+        }
+    }
+    
          
 }

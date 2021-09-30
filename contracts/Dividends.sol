@@ -1,61 +1,98 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 // import "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC777/ERC777.sol";
 
-import "./interfaces/IDividends.sol";
-import "./interfaces/src20/ISRC20.sol";
-import "./Minimums.sol";
+//import "./interfaces/IDividends.sol";
+//import "./interfaces/src20/ISRC20.sol";
+//import "./Minimums.sol";
 
 // /*
 //  * @title TransferRules contract
 //  * @dev Contract that is checking if on-chain rules for token transfers are concluded.
 //  */
-contract Dividends is OwnableUpgradeable, ERC20Upgradeable, IDividends, Minimums {
+contract Dividends is Ownable, ERC777, IERC777Recipient {
     
-	using SafeMathUpgradeable for uint256;
+	using SafeMath for uint256;
 	//using MathUpgradeable for uint256;
     
     mapping(address => uint256) lastClaimRedeemTime;
-    address _src20;
+    address _token;
     uint256 stakeDuration;
+    
+    bytes32 constant private TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
     
     event Staked(address indexed account, uint256 amount);
     event Claimed(address indexed account, uint256 amount);
     event Redeemed(address indexed account, uint256 amount);
     
-    function initialize(
-        string memory name, 
-        string memory symbol, 
+    constructor(
+        string memory name_,
+        string memory symbol_,
+        address[] memory defaultOperators_,
         uint256 duration,
-        address src20
-    )  
-        external 
-        override
-        initializer 
-    {
-        __Ownable_init();
-        __ERC20_init(name, symbol);
-        __Dividends_init(duration, src20);
-    }
+        address token
     
-    function __Dividends_init(
-        uint256 duration,
-        address src20
-    )
-        internal
-        initializer 
+    ) 
+        ERC777(name_, symbol_, defaultOperators_)
     {
+        _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
+        
         require(duration != 0, "wrong duration");
         stakeDuration = duration;
-        _src20 = src20;
+        _token = token;
     }
-function TTT(address addr, uint256 amount) public { _mint(addr, amount);}    
 
+address a1;
+address a2;
+address a3;
+function get() public view returns(address,address,address) {
+    return (a1,a2,a3);
+}
+    function tokensReceived(
+        address operator,
+        address from,
+        address to,
+        uint256 amount,
+        bytes calldata userData,
+        bytes calldata operatorData
+    ) 
+        override
+        external
+    {
+        a1 = operator;
+        a2 = from;
+        a3 = to;
+        
+        if (msg.sender == _token) {
+            
+            stake(from, amount);
+            
+        }
+    }
+
+    function stake(
+        address addr, 
+        uint256 amount
+    )
+        internal
+    {
+        require(amount != 0, "wrong amount");
+        
+        if (lastClaimRedeemTime[addr] == 0) {
+            lastClaimRedeemTime[addr] = block.timestamp;
+        }
+        
+        _mint(addr, amount, "", "");
+            
+        emit Staked(addr, amount);
+    }
+    
+/*
     function stake(
         address addr, 
         uint256 amount
@@ -151,4 +188,5 @@ function TTT(address addr, uint256 amount) public { _mint(addr, amount);}
         }
         
     }
+    */
 }
