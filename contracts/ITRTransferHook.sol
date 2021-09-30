@@ -129,4 +129,5 @@ contract ITRTransferHook is BaseTransferRule, FactoryBase {
         
         return true;
     }
+    
 }

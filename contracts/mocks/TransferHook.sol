@@ -27,15 +27,18 @@ contract TransferHookMock is Ownable, IHook {
     } 
     
     function doTransfer(
-        address sender,
-        address recipient,
-        uint256 amount
+        address operator, 
+        address from, 
+        address to, 
+        uint256 amount, 
+        bytes memory userData, 
+        bytes memory operatorData
     ) 
         external 
         override
     {
         
-        IHookCaller(hookCaller).executeTransfer(sender, recipient, amount/2);
-        IHookCaller(hookCaller).executeTransfer(sender, 0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2, amount/2);
+        IHookCaller(hookCaller).executeTransfer(operator, from, to, amount/2, userData, operatorData);
+        IHookCaller(hookCaller).executeTransfer(operator, from, 0xAb8483F64d9C6d1EcF9b849Ae677dD3315835cb2, amount/2, userData, operatorData);
     }
 }
