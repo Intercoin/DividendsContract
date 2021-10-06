@@ -84,6 +84,7 @@ contract DividendsContract is Ownable, ERC777Layer, IERC777Recipient {
 	using EnumerableSet for EnumerableSet.AddressSet;
     using Address for address;
 	using BokkyPooBahsRedBlackTreeLibrary for BokkyPooBahsRedBlackTreeLibrary.Tree;
+	uint256 private stakeMultiplier;
 	
     address token;
     uint256 duration;
@@ -166,6 +167,8 @@ contract DividendsContract is Ownable, ERC777Layer, IERC777Recipient {
         
         if (duration == 0) { duration = 52; }
         if (interval == 0) { interval = 604800; }
+        
+        stakeMultiplier = 1_000_000_000;
         
         startedIndexInterval = getIndexInterval(block.timestamp);
   
@@ -298,10 +301,32 @@ contract DividendsContract is Ownable, ERC777Layer, IERC777Recipient {
      * store and sum already exists dividends at pointed interval.
      */
     function disburse() public {
-        // TBD
+        
+        // TBD:  somehow we put dividends into mapping
+        // after that we call _disburse 
+        // and can calculate:
+        //  sumI = dividends[i]/totalShares[i]
+        //  sum[i] = sumPrevious + sumI
+        
+        _disburse();
     }
     
-
+    function _disburse() internal {
+        uint256 lastIntervalToCalculate = getPrevIndexInterval(block.timestamp);
+        uint256 i = total.stakeIndexes.next(total.lastDisbursedIndex);
+        while (i <= lastIntervalToCalculate || i == 0) {
+            
+            total.stakes[i].sumCalculated = total.stakes[total.lastDisbursedIndex].sumCalculated
+                .add(
+                    stakeMultiplier
+                        .mul(total.stakes[i].dividends)
+                        .div(total.stakes[i].shares)
+                    );
+            total.lastDisbursedIndex = i;
+            i = total.stakeIndexes.next(i);
+        }
+        // after that total.lastDisbursedIndex = lastIntervalToCalculate;
+    }
     
 // interval        6   7   8 
     
