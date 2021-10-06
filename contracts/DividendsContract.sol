@@ -116,28 +116,26 @@ contract DividendsContract is Ownable, ERC777Layer, IERC777Recipient {
     
     */
     
+    
+    
+    
+    
     struct Stake {
-        uint256 totalShares; // sum shares
-        uint256 totalDividends;
-        uint256 init;
-        uint256 previousIndex;
+        uint256 shares;
+        uint256 dividends;
+        uint256 sumCalculated;
     }
+    
     struct StakeData {
         mapping(uint256 => Stake) stakes;
-        uint256 lastIndex;
+        BokkyPooBahsRedBlackTreeLibrary.Tree stakeIndexes;
+        uint256 lastDisbursedIndex;
     }
     
     StakeData total;
     
-    
-    
-    struct UserStakeData {
-        
-        mapping(uint256 => Stake) stakes;
-        uint256 lastIndex;
-    }
     struct UserStake {
-        UserStakeData total;
+        StakeData total;
         BokkyPooBahsRedBlackTreeLibrary.Tree intervals;
         uint256 lastClaimRedeemTime;
         // uint256 lastDeltaTotal;
@@ -169,18 +167,15 @@ contract DividendsContract is Ownable, ERC777Layer, IERC777Recipient {
         if (duration == 0) { duration = 52; }
         if (interval == 0) { interval = 604800; }
         
-        startedIndexInterval = getCurrentIndexInterval();
+        startedIndexInterval = getIndexInterval(block.timestamp);
   
         //make initial setting up for total node
-        total.lastIndex = startedIndexInterval;
         total.stakes[startedIndexInterval] = Stake({
-            totalShares: 0,
-            totalDividends: 0,
-            // ended: 0,
-            // delta: 0,
-            init: 1,
-            previousIndex:0
+            shares: 0,
+            dividends: 0,
+            sumCalculated: 0
         });
+        total.stakeIndexes.insert(startedIndexInterval);
     }
     
 // address a1;
@@ -257,7 +252,7 @@ contract DividendsContract is Ownable, ERC777Layer, IERC777Recipient {
         _mint(addr, amount, "", "");
         
         // define intervals
-        uint256 intervalStarted = getCurrentIndexInterval();
+        uint256 intervalStarted = getIndexInterval(block.timestamp);
         uint256 intervalEnded = intervalStarted.add(duration);
         _stakeAdd(addr, amount, intervalStarted, intervalEnded);
         
@@ -276,53 +271,75 @@ contract DividendsContract is Ownable, ERC777Layer, IERC777Recipient {
         // uint256 intervalStarted = getCurrentIndexInterval();
         // uint256 intervalEnded = intervalStarted.add(duration);
         
-        // ----------------------
-        // store to total
-        // note: seems that delta are the same, but it's not true. 
-        //    started  - sum of all started in the pointed period
-        //    delta - accumulated value from previuos steps and represent all active shares 
-        if (total.stakes[intervalStarted].init == 0) {
-            total.stakes[intervalStarted].totalShares = total.stakes[total.lastIndex].totalShares
-                .add(
-                    total.stakes[intervalStarted].totalShares
-                );
-            total.stakes[intervalStarted].previousIndex = total.lastIndex;
-            total.lastIndex = intervalStarted;
-            total.stakes[intervalStarted].init = 1;
+        if (!total.stakeIndexes.exists(intervalStarted)) {
+            total.stakeIndexes.insert(intervalStarted);
         }
-        total.stakes[intervalStarted].totalShares = total.stakes[intervalStarted].totalShares.add(amount);
+        total.stakes[intervalStarted].shares = total.stakes[intervalStarted].shares.add(amount);
 
         // ----------------------
         
         // store to user
-        if (users[addr].total.stakes[intervalStarted].init == 0) {
-            users[addr].total.stakes[intervalStarted].totalShares = users[addr].total.stakes[users[addr].total.lastIndex].totalShares
-                .add(
-                    users[addr].total.stakes[intervalStarted].totalShares
-                );
-            users[addr].total.stakes[intervalStarted].previousIndex = users[addr].total.lastIndex;
-            users[addr].total.lastIndex = intervalStarted;
-            users[addr].total.stakes[intervalStarted].init = 1;
+        if (!users[addr].total.stakeIndexes.exists(intervalStarted)) {
+            users[addr].total.stakeIndexes.insert(intervalStarted);
         }
-        
-        users[addr].total.stakes[intervalStarted].totalShares = users[addr].total.stakes[intervalStarted].totalShares.add(amount);
+        users[addr].total.stakes[intervalStarted].shares = users[addr].total.stakes[intervalStarted].shares.add(amount);
 
-        /// added intervals
-        if (!users[addr].intervals.exists(intervalStarted)) {
-            users[addr].intervals.insert(intervalStarted);
-        }
-        if (!users[addr].intervals.exists(intervalEnded)) {
-            users[addr].intervals.insert(intervalEnded);
-        }
+        // /// added intervals
+        // if (!users[addr].intervals.exists(intervalStarted)) {
+        //     users[addr].intervals.insert(intervalStarted);
+        // }
+        // if (!users[addr].intervals.exists(intervalEnded)) {
+        //     users[addr].intervals.insert(intervalEnded);
+        // }
         
     }
     
-    
+    /**
+     * store and sum already exists dividends at pointed interval.
+     */
     function disburse() public {
-        
+        // TBD
     }
     
-    function getSum(uint256 intervalIndex) public view returns(uint256) {}
+
+    
+// interval        6   7   8 
+    
+// sumDividends    3   8   16
+// sumShares       4   10  19
+    
+// dividends       3   5   8
+// shares          4   6   9 
+
+// sum          0.75 1.58 2.47
+    
+    
+    // get sum shares at interval
+    // loop need if we have check for none exists buckets yet
+    function getTotalShares(uint256 timestamp) public view returns(uint256) {
+        uint256 intervalIndex = getIndexInterval(timestamp);
+        while (!total.stakeIndexes.exists(intervalIndex)) {
+            intervalIndex = getPrevIndexInterval(intervalIndex);
+        }
+        return total.stakes[intervalIndex].shares;
+    }
+    
+    // function getTotalUserShares(address addr, uint256 timestamp) public view returns(uint256) {
+    //     uint256 intervalIndex = getIndexInterval(timestamp);
+    //     while (users[addr].total.stakes[intervalIndex].init == 0) {
+    //         intervalIndex = getPrevIndexInterval(intervalIndex);
+    //     }
+    //     return users[addr].total.stakes[intervalIndex].totalShares;
+    // }
+    
+    // function getTotalUserShares(address addr, uint256 timestamp) public view returns(uint256) {
+    //     uint256 intervalIndex = getIndexInterval(timestamp);
+    //     while (users[addr].total.stakes[intervalIndex].init == 0) {
+    //         intervalIndex = getPrevIndexInterval(intervalIndex);
+    //     }
+    //     return users[addr].total.stakes[intervalIndex].totalShares;
+    // }
+    
 /*
 1-10    1   sum=1   
 5-15    5   sum=6   
@@ -397,12 +414,15 @@ contract DividendsContract is Ownable, ERC777Layer, IERC777Recipient {
     mapping(address => User) users;
     
     */
-    function getCurrentIndexInterval() internal view returns(uint256) {
-        return (block.timestamp).div(interval).mul(interval);
+    function getIndexInterval(uint256 ts) internal view returns(uint256) {
+        return (ts).div(interval).mul(interval);
     }
     
-    function getNextIndexInterval() internal view returns(uint256) {
-        return getCurrentIndexInterval().add(interval);
+    function getNextIndexInterval(uint256 ts) internal view returns(uint256) {
+        return getIndexInterval(ts).add(interval);
+    }
+    function getPrevIndexInterval(uint256 ts) internal view returns(uint256) {
+        return getIndexInterval(ts).sub(interval);
     }
     
     function claim()
