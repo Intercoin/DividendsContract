@@ -13,72 +13,72 @@ import "./lib/BokkyPooBahsRedBlackTreeLibrary.sol";
 //import "./interfaces/src20/ISRC20.sol";
 //import "./Minimums.sol";
 
-contract T {
-    using SafeMath for uint256;
-    using BokkyPooBahsRedBlackTreeLibrary for BokkyPooBahsRedBlackTreeLibrary.Tree;
+// contract T {
+//     using SafeMath for uint256;
+//     using BokkyPooBahsRedBlackTreeLibrary for BokkyPooBahsRedBlackTreeLibrary.Tree;
     
-    uint256 i;
-    uint256 i2;
-    BokkyPooBahsRedBlackTreeLibrary.Tree intervals;
-    // function set() public {
-    //     uint256 j;
-    //     for (j = 0; j < 5; j = j.add(1)) {
-    //         i2 = j;
-    //     }    
-    //     i = j;
-    // }
-    // function get() public view returns(uint256,uint256) {
-    //     return (i,i2);
-    // }
+//     uint256 i;
+//     uint256 i2;
+//     BokkyPooBahsRedBlackTreeLibrary.Tree intervals;
+//     // function set() public {
+//     //     uint256 j;
+//     //     for (j = 0; j < 5; j = j.add(1)) {
+//     //         i2 = j;
+//     //     }    
+//     //     i = j;
+//     // }
+//     // function get() public view returns(uint256,uint256) {
+//     //     return (i,i2);
+//     // }
     
-    function set(uint256 i) public {
-        if (intervals.exists(i)) {
-        } else {
-        intervals.insert(i);
-        }
+//     function set(uint256 i) public {
+//         if (intervals.exists(i)) {
+//         } else {
+//         intervals.insert(i);
+//         }
         
-    }
+//     }
     
-    function unset(uint256 i) public {
-        if (intervals.exists(i)) {
-            intervals.remove(i);
-        } else {
+//     function unset(uint256 i) public {
+//         if (intervals.exists(i)) {
+//             intervals.remove(i);
+//         } else {
         
-        }
+//         }
         
-    }
+//     }
     
-    function get() public view returns(uint256[] memory) {
-        uint256 j;
-        uint256 len;
-        uint256 next;
+//     function get() public view returns(uint256[] memory) {
+//         uint256 j;
+//         uint256 len;
+//         uint256 next;
         
-        next = intervals.first();
-        while (next != 0) {
-            len += 1;
-            next = intervals.next(next);
-        }    
+//         next = intervals.first();
+//         while (next != 0) {
+//             len += 1;
+//             next = intervals.next(next);
+//         }    
 
 
-        uint256[] memory ret = new uint256[](len);
-        uint256 counter;
-        next = intervals.first();
-            while (next != 0) {
-                ret[counter] = next;
-                counter = counter+1;
-                next = intervals.next(next);
-            } 
+//         uint256[] memory ret = new uint256[](len);
+//         uint256 counter;
+//         next = intervals.first();
+//             while (next != 0) {
+//                 ret[counter] = next;
+//                 counter = counter+1;
+//                 next = intervals.next(next);
+//             } 
         
-        return ret;
-    }
+//         return ret;
+//     }
     
     
-}
+// }
 // /*
 //  * @title TransferRules contract
 //  * @dev Contract that is checking if on-chain rules for token transfers are concluded.
 //  */
-contract Dividends is Ownable, ERC777Layer, IERC777Recipient {
+contract DividendsContract is Ownable, ERC777Layer, IERC777Recipient {
     
 	using SafeMath for uint256;
 	using EnumerableSet for EnumerableSet.AddressSet;
@@ -117,20 +117,27 @@ contract Dividends is Ownable, ERC777Layer, IERC777Recipient {
     */
     
     struct Stake {
-        uint256 started;
-        uint256 ended;
-        uint256 delta; // active(opened) shares at current interval_
-        uint256 init; // flag setup in '1'(true) when creating new stake interval and sum started value from previous
+        uint256 totalShares; // sum shares
+        uint256 totalDividends;
+        uint256 init;
+        uint256 previousIndex;
     }
     struct StakeData {
         mapping(uint256 => Stake) stakes;
-        uint256 previousIndex;
+        uint256 lastIndex;
     }
     
     StakeData total;
     
+    
+    
+    struct UserStakeData {
+        
+        mapping(uint256 => Stake) stakes;
+        uint256 lastIndex;
+    }
     struct UserStake {
-        StakeData total;
+        UserStakeData total;
         BokkyPooBahsRedBlackTreeLibrary.Tree intervals;
         uint256 lastClaimRedeemTime;
         // uint256 lastDeltaTotal;
@@ -165,12 +172,14 @@ contract Dividends is Ownable, ERC777Layer, IERC777Recipient {
         startedIndexInterval = getCurrentIndexInterval();
   
         //make initial setting up for total node
-        total.previousIndex = startedIndexInterval;
+        total.lastIndex = startedIndexInterval;
         total.stakes[startedIndexInterval] = Stake({
-            started: 0,
-            ended: 0,
-            delta: 0,
-            init: 1
+            totalShares: 0,
+            totalDividends: 0,
+            // ended: 0,
+            // delta: 0,
+            init: 1,
+            previousIndex:0
         });
     }
     
@@ -273,34 +282,31 @@ contract Dividends is Ownable, ERC777Layer, IERC777Recipient {
         //    started  - sum of all started in the pointed period
         //    delta - accumulated value from previuos steps and represent all active shares 
         if (total.stakes[intervalStarted].init == 0) {
-            total.stakes[intervalStarted].delta = total.stakes[total.previousIndex].delta
-                .sub(
-                    total.stakes[intervalStarted].ended
+            total.stakes[intervalStarted].totalShares = total.stakes[total.lastIndex].totalShares
+                .add(
+                    total.stakes[intervalStarted].totalShares
                 );
-            total.previousIndex = intervalStarted;
+            total.stakes[intervalStarted].previousIndex = total.lastIndex;
+            total.lastIndex = intervalStarted;
             total.stakes[intervalStarted].init = 1;
         }
-        
-        total.stakes[intervalStarted].started = total.stakes[intervalStarted].started.add(amount);
-        total.stakes[intervalEnded].ended = total.stakes[intervalEnded].ended.add(amount);
-        
-        total.stakes[intervalStarted].delta = total.stakes[intervalStarted].delta.add(amount);
+        total.stakes[intervalStarted].totalShares = total.stakes[intervalStarted].totalShares.add(amount);
+
         // ----------------------
         
         // store to user
         if (users[addr].total.stakes[intervalStarted].init == 0) {
-            users[addr].total.stakes[intervalStarted].delta = users[addr].total.stakes[users[addr].total.previousIndex].delta
-                .sub(
-                    users[addr].total.stakes[intervalStarted].ended
+            users[addr].total.stakes[intervalStarted].totalShares = users[addr].total.stakes[users[addr].total.lastIndex].totalShares
+                .add(
+                    users[addr].total.stakes[intervalStarted].totalShares
                 );
-            users[addr].total.previousIndex = intervalStarted;
+            users[addr].total.stakes[intervalStarted].previousIndex = users[addr].total.lastIndex;
+            users[addr].total.lastIndex = intervalStarted;
             users[addr].total.stakes[intervalStarted].init = 1;
         }
-        users[addr].total.stakes[intervalStarted].started = users[addr].total.stakes[intervalStarted].started.add(amount);
-        users[addr].total.stakes[intervalEnded].ended = users[addr].total.stakes[intervalEnded].ended.add(amount);
         
-        users[addr].total.stakes[intervalStarted].delta = users[addr].total.stakes[intervalStarted].delta.add(amount);
-        
+        users[addr].total.stakes[intervalStarted].totalShares = users[addr].total.stakes[intervalStarted].totalShares.add(amount);
+
         /// added intervals
         if (!users[addr].intervals.exists(intervalStarted)) {
             users[addr].intervals.insert(intervalStarted);
@@ -311,20 +317,33 @@ contract Dividends is Ownable, ERC777Layer, IERC777Recipient {
         
     }
     
-    function getShares(address addr, uint256 from, uint256 to) public view returns(uint256 ret) {
-        uint256 next = users[addr].intervals.first();
+    
+    function disburse() public {
         
-        while (next != 0) {
-            if ((from <= next) && (to >= next)) {
-                ret = users[addr].total.stakes[next].delta;
-            }
+    }
+    
+    function getSum(uint256 intervalIndex) public view returns(uint256) {}
+/*
+1-10    1   sum=1   
+5-15    5   sum=6   
+10-20   10  sum=16  
+20-30   2   sum=18  
+25-35   5   sum=23  
+*/    
+    function getShares(address addr, uint256 from, uint256 to) public view returns(uint256 ret) {
+        // uint256 next = users[addr].intervals.first();
+        
+        // while (next != 0) {
+        //     if ((from <= next) && (to >= next)) {
+        //         ret = users[addr].total.stakes[next].delta;
+        //     }
             
-            if (to < next) {
-                break;
-            }
+        //     if (to < next) {
+        //         break;
+        //     }
             
-            next = users[addr].intervals.next(next);
-        } 
+        //     next = users[addr].intervals.next(next);
+        // } 
     }
     function calculateDividends(
         address addr
