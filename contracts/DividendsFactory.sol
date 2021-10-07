@@ -36,10 +36,11 @@ contract DividendsFactory is FactoryBase {
         uint256 interval, // * interval: WEEK by default
         uint256 duration, // * duration: 52 (intervals)
         uint256 multiplier,
-        address token
+        address token,
+        address[] memory whitelist
     ) public returns(address) {
         address proxy = _produce();
-        IDividendsContract(proxy).initialize(name, symbol, defaultOperators, interval, duration, multiplier, token);
+        IDividendsContract(proxy).initialize(name, symbol, defaultOperators, interval, duration, multiplier, token, whitelist);
         OwnableUpgradeable(proxy).transferOwnership(_getProducedSender());
         return proxy;
     }

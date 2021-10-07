@@ -145,6 +145,7 @@ contract DividendsContract is Ownable, ERC777Layer, IERC777Recipient {
     
     mapping(address => UserStake) users;
     
+    EnumerableSet.AddressSet whitelist;
     
     constructor(
         string memory name_,
@@ -153,7 +154,8 @@ contract DividendsContract is Ownable, ERC777Layer, IERC777Recipient {
         uint256 interval_, // * interval: WEEK by default
         uint256 duration_, // * duration: 52 (intervals)
         uint256 multiplier_,
-        address token_
+        address token_,
+        address[] memory whitelist_
     ) 
         ERC777Layer(name_, symbol_, defaultOperators_)
     {
@@ -179,6 +181,12 @@ contract DividendsContract is Ownable, ERC777Layer, IERC777Recipient {
             sumCalculated: 0
         });
         total.stakeIndexes.insert(startedIndexInterval);
+        
+        
+        // whitelist
+        for (uint256 i =0; i<whitelist_.length; i++) {
+            whitelist.add(whitelist_[i]);
+        }
     }
     
 // address a1;

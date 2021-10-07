@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 interface IDividendsContract {
-    //                          name,         symbol, defaultOperators, interval, duration,multiplier, token
-    function initialize(string memory, string memory, address[] memory, uint256, uint256, uint256, address) external;
+    //                          name,         symbol, defaultOperators, interval, duration,multiplier, token, whitelist
+    function initialize(string memory, string memory, address[] memory, uint256, uint256, uint256, address, address[] memory) external;
     function stake(address, uint256) external;
     function claim() external;
     function redeem() external;
