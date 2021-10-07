@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
-
 import "./FactoryBase.sol";
 import "./interfaces/IDividendsContract.sol";
 
@@ -11,9 +9,8 @@ import "./interfaces/IDividendsContract.sol";
  * @dev Contract that is checking if on-chain rules for token transfers are concluded.
  */
 contract DividendsFactory is FactoryBase {
-    using SafeMathUpgradeable for uint256;
     
-        //---------------------------------------------------------------------------------
+    //---------------------------------------------------------------------------------
     // public  section
     //---------------------------------------------------------------------------------
 

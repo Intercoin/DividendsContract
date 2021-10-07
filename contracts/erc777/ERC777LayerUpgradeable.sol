@@ -11,10 +11,6 @@ import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC1820RegistryUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-//import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
-import "../interfaces/IHook.sol";
-import "../interfaces/IHookCaller.sol";
-
 /**
  * @dev Implementation of the {IERC777} interface.
  *

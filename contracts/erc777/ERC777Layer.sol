@@ -10,8 +10,6 @@ import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/utils/introspection/IERC1820Registry.sol";
 
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "../interfaces/IHook.sol";
-import "../interfaces/IHookCaller.sol";
 
 /**
  * erc77 token from openzeppeling library with changes:

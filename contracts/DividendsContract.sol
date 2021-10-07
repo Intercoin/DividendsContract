@@ -13,7 +13,7 @@ import "./erc777/ERC777LayerUpgradeable.sol";
 
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
 import "./lib/BokkyPooBahsRedBlackTreeLibrary.sol";
-//import "./interfaces/src20/ISRC20.sol";
+import "./interfaces/IDividendsContract.sol";
 //import "./Minimums.sol";
 
 // contract T {
@@ -81,7 +81,7 @@ import "./lib/BokkyPooBahsRedBlackTreeLibrary.sol";
 //  * @title TransferRules contract
 //  * @dev Contract that is checking if on-chain rules for token transfers are concluded.
 //  */
-contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777RecipientUpgradeable {
+contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777RecipientUpgradeable, IDividendsContract {
     
 	using SafeMathUpgradeable for uint256;
 	using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
@@ -152,7 +152,7 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
     
     EnumerableSetUpgradeable.AddressSet whitelist;
     
-    function init(
+    function initialize(
         string memory name_,
         string memory symbol_,
         address[] memory defaultOperators_,
@@ -164,6 +164,7 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
     ) 
         public 
         initializer
+        override
     {
         __DividendsContract_init(name_, symbol_, defaultOperators_, interval_, duration_, multiplier_, token_, whitelist_);
         
@@ -173,6 +174,10 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
     //---------------------------------------------------------------------------------
     // public  section
     //---------------------------------------------------------------------------------
+    function getInterval() public view override returns(uint256) {
+        return interval;
+    }
+    
     //---------------------------------------------------------------------------------
     // internal  section
     //---------------------------------------------------------------------------------
@@ -346,36 +351,24 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         
     }
     
-    /**
-     * store and sum already exists dividends at pointed interval.
-     */
-    function disburse() public {
-        
-        // TBD:  somehow we put dividends into mapping
-        // after that we call _disburse 
-        // and can calculate:
-        //  sumI = dividends[i]/totalShares[i]
-        //  sum[i] = sumPrevious + sumI
-        
-        _disburse();
-    }
     
-    function _disburse() internal {
-        uint256 lastIntervalToCalculate = getPrevIndexInterval(block.timestamp);
-        uint256 i = total.stakeIndexes.next(total.lastDisbursedIndex);
-        while (i <= lastIntervalToCalculate || i == 0) {
+    
+    // function _disburse() internal {
+    //     uint256 lastIntervalToCalculate = getPrevIndexInterval(block.timestamp);
+    //     uint256 i = total.stakeIndexes.next(total.lastDisbursedIndex);
+    //     while (i <= lastIntervalToCalculate || i == 0) {
             
-            total.stakes[i].sumCalculated = total.stakes[total.lastDisbursedIndex].sumCalculated
-                .add(
-                    stakeMultiplier
-                        .mul(total.stakes[i].dividends)
-                        .div(total.stakes[i].shares)
-                    );
-            total.lastDisbursedIndex = i;
-            i = total.stakeIndexes.next(i);
-        }
-        // after that total.lastDisbursedIndex = lastIntervalToCalculate;
-    }
+    //         total.stakes[i].sumCalculated = total.stakes[total.lastDisbursedIndex].sumCalculated
+    //             .add(
+    //                 stakeMultiplier
+    //                     .mul(total.stakes[i].dividends)
+    //                     .div(total.stakes[i].shares)
+    //                 );
+    //         total.lastDisbursedIndex = i;
+    //         i = total.stakeIndexes.next(i);
+    //     }
+    //     // after that total.lastDisbursedIndex = lastIntervalToCalculate;
+    // }
     
 // interval        6   7   8 
     
