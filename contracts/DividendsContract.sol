@@ -87,6 +87,7 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
 	using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
     //using Address for address;
 	using BokkyPooBahsRedBlackTreeLibrary for BokkyPooBahsRedBlackTreeLibrary.Tree;
+	uint256 private stakeMultiplier;
 	
 	
 	//---------------------------------------------------------------------------------
@@ -351,8 +352,6 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         
     }
     
-    
-    
     // function _disburse() internal {
     //     uint256 lastIntervalToCalculate = getPrevIndexInterval(block.timestamp);
     //     uint256 i = total.stakeIndexes.next(total.lastDisbursedIndex);
@@ -369,6 +368,7 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
     //     }
     //     // after that total.lastDisbursedIndex = lastIntervalToCalculate;
     // }
+
     
 // interval        6   7   8 
     
