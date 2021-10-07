@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "./erc777/ERC777Layer.sol";
 
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
 
-import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
+import "./erc777/ERC777LayerUpgradeable.sol";
+
+
+
+import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
 import "./lib/BokkyPooBahsRedBlackTreeLibrary.sol";
 //import "./interfaces/src20/ISRC20.sol";
 //import "./Minimums.sol";
@@ -78,12 +81,18 @@ import "./lib/BokkyPooBahsRedBlackTreeLibrary.sol";
 //  * @title TransferRules contract
 //  * @dev Contract that is checking if on-chain rules for token transfers are concluded.
 //  */
-contract DividendsContract is Ownable, ERC777Layer, IERC777Recipient {
+contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777RecipientUpgradeable {
     
-	using SafeMath for uint256;
-	using EnumerableSet for EnumerableSet.AddressSet;
-    using Address for address;
+	using SafeMathUpgradeable for uint256;
+	using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
+    //using Address for address;
 	using BokkyPooBahsRedBlackTreeLibrary for BokkyPooBahsRedBlackTreeLibrary.Tree;
+	
+	
+	//---------------------------------------------------------------------------------
+    // variables section
+    //---------------------------------------------------------------------------------
+    
 	uint256 private stakeMultiplier;
 	
     address token;
@@ -117,10 +126,6 @@ contract DividendsContract is Ownable, ERC777Layer, IERC777Recipient {
     
     */
     
-    
-    
-    
-    
     struct Stake {
         uint256 shares;
         uint256 dividends;
@@ -145,9 +150,9 @@ contract DividendsContract is Ownable, ERC777Layer, IERC777Recipient {
     
     mapping(address => UserStake) users;
     
-    EnumerableSet.AddressSet whitelist;
+    EnumerableSetUpgradeable.AddressSet whitelist;
     
-    constructor(
+    function init(
         string memory name_,
         string memory symbol_,
         address[] memory defaultOperators_,
@@ -157,8 +162,39 @@ contract DividendsContract is Ownable, ERC777Layer, IERC777Recipient {
         address token_,
         address[] memory whitelist_
     ) 
-        ERC777Layer(name_, symbol_, defaultOperators_)
+        public 
+        initializer
     {
+        __DividendsContract_init(name_, symbol_, defaultOperators_, interval_, duration_, multiplier_, token_, whitelist_);
+        
+    }
+    
+    
+    //---------------------------------------------------------------------------------
+    // public  section
+    //---------------------------------------------------------------------------------
+    //---------------------------------------------------------------------------------
+    // internal  section
+    //---------------------------------------------------------------------------------
+    
+    /**
+     * init internal
+     */
+    function __DividendsContract_init(
+        string memory name_,
+        string memory symbol_,
+        address[] memory defaultOperators_,
+        uint256 interval_, // * interval: WEEK by default
+        uint256 duration_, // * duration: 52 (intervals)
+        uint256 multiplier_,
+        address token_,
+        address[] memory whitelist_
+    ) 
+        internal
+        initializer 
+    {
+        __Ownable_init();
+        __ERC777LayerUpgradeable_init(name_, symbol_, defaultOperators_);
         
         _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
         
@@ -187,7 +223,12 @@ contract DividendsContract is Ownable, ERC777Layer, IERC777Recipient {
         for (uint256 i =0; i<whitelist_.length; i++) {
             whitelist.add(whitelist_[i]);
         }
+
     }
+  
+    //---------------------------------------------------------------------------------
+    // external section
+    //---------------------------------------------------------------------------------
     
 // address a1;
 // address a2;

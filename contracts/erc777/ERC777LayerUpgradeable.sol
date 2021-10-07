@@ -1,27 +1,45 @@
 // SPDX-License-Identifier: MIT
+
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC777/IERC777.sol";
-import "@openzeppelin/contracts/token/ERC777/IERC777Recipient.sol";
-import "@openzeppelin/contracts/token/ERC777/IERC777Sender.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/utils/Context.sol";
-import "@openzeppelin/contracts/utils/introspection/IERC1820Registry.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777SenderUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/AddressUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC1820RegistryUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+//import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
 import "../interfaces/IHook.sol";
 import "../interfaces/IHookCaller.sol";
 
 /**
+ * @dev Implementation of the {IERC777} interface.
+ *
+ * This implementation is agnostic to the way tokens are created. This means
+ * that a supply mechanism has to be added in a derived contract using {_mint}.
+ *
+ * Support for ERC20 is included in this contract, as specified by the EIP: both
+ * the ERC777 and ERC20 interfaces can be safely used when interacting with it.
+ * Both {IERC777-Sent} and {IERC20-Transfer} events are emitted on token
+ * movements.
+ *
+ * Additionally, the {IERC777-granularity} value is hard-coded to `1`, meaning that there
+ * are no special restrictions in the amount of tokens that created, moved, or
+ * destroyed. This makes integration with ERC20 applications seamless.
+ * 
+ * Additionally made changes for Layer:
  * erc77 token from openzeppeling library with changes:
  *  - move method _move from "private" to "internal virtual". that create the way to calculate and gather statisictics in each transfers
  *  - move methods _callTokensToSend, _callTokensReceived from "private" to "internal"
+ *
  */
-contract ERC777Layer is Context, IERC777, IERC20 {
-    using Address for address;
+contract ERC777LayerUpgradeable is Initializable, ContextUpgradeable, IERC777Upgradeable, IERC20Upgradeable {
+    using AddressUpgradeable for address;
 
-    IERC1820Registry internal constant _ERC1820_REGISTRY = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
+    IERC1820RegistryUpgradeable internal constant _ERC1820_REGISTRY = IERC1820RegistryUpgradeable(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
 
     mapping(address => uint256) private _balances;
 
@@ -49,11 +67,20 @@ contract ERC777Layer is Context, IERC777, IERC20 {
     /**
      * @dev `defaultOperators` may be an empty array.
      */
-    constructor(
+    function __ERC777LayerUpgradeable_init(
         string memory name_,
         string memory symbol_,
         address[] memory defaultOperators_
-    ) {
+    ) internal initializer {
+        __Context_init_unchained();
+        __ERC777_init_unchained(name_, symbol_, defaultOperators_);
+    }
+
+    function __ERC777_init_unchained(
+        string memory name_,
+        string memory symbol_,
+        address[] memory defaultOperators_
+    ) internal initializer {
         _name = name_;
         _symbol = symbol_;
 
@@ -103,14 +130,14 @@ contract ERC777Layer is Context, IERC777, IERC20 {
     /**
      * @dev See {IERC777-totalSupply}.
      */
-    function totalSupply() public view virtual override(IERC20, IERC777) returns (uint256) {
+    function totalSupply() public view virtual override(IERC20Upgradeable, IERC777Upgradeable) returns (uint256) {
         return _totalSupply;
     }
 
     /**
      * @dev Returns the amount of tokens owned by an account (`tokenHolder`).
      */
-    function balanceOf(address tokenHolder) public view virtual override(IERC20, IERC777) returns (uint256) {
+    function balanceOf(address tokenHolder) public view virtual override(IERC20Upgradeable, IERC777Upgradeable) returns (uint256) {
         return _balances[tokenHolder];
     }
 
@@ -474,11 +501,10 @@ contract ERC777Layer is Context, IERC777, IERC20 {
         uint256 amount,
         bytes memory userData,
         bytes memory operatorData
-    //) private {
     ) internal {
         address implementer = _ERC1820_REGISTRY.getInterfaceImplementer(from, _TOKENS_SENDER_INTERFACE_HASH);
         if (implementer != address(0)) {
-            IERC777Sender(implementer).tokensToSend(operator, from, to, amount, userData, operatorData);
+            IERC777SenderUpgradeable(implementer).tokensToSend(operator, from, to, amount, userData, operatorData);
         }
     }
 
@@ -501,11 +527,10 @@ contract ERC777Layer is Context, IERC777, IERC20 {
         bytes memory userData,
         bytes memory operatorData,
         bool requireReceptionAck
-    //) private {
     ) internal {
         address implementer = _ERC1820_REGISTRY.getInterfaceImplementer(to, _TOKENS_RECIPIENT_INTERFACE_HASH);
         if (implementer != address(0)) {
-            IERC777Recipient(implementer).tokensReceived(operator, from, to, amount, userData, operatorData);
+            IERC777RecipientUpgradeable(implementer).tokensReceived(operator, from, to, amount, userData, operatorData);
         } else if (requireReceptionAck) {
             require(!to.isContract(), "ERC777: token recipient contract has no implementer for ERC777TokensRecipient");
         }
@@ -531,5 +556,5 @@ contract ERC777Layer is Context, IERC777, IERC20 {
         address to,
         uint256 amount
     ) internal virtual {}
-         
+    uint256[41] private __gap;
 }
