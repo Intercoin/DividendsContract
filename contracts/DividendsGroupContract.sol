@@ -95,6 +95,7 @@ contract DividendsGroupContract is IDividendsGroupContract, OwnableUpgradeable {
         // TBD
         
     }
+    
     //---------------------------------------------------------------------------------
     // internal  section
     //---------------------------------------------------------------------------------

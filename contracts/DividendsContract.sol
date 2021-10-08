@@ -14,81 +14,13 @@ import "./erc777/ERC777LayerUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
 import "./lib/BokkyPooBahsRedBlackTreeLibrary.sol";
 import "./interfaces/IDividendsContract.sol";
-//import "./Minimums.sol";
-
-// contract T {
-//     using SafeMath for uint256;
-//     using BokkyPooBahsRedBlackTreeLibrary for BokkyPooBahsRedBlackTreeLibrary.Tree;
-    
-//     uint256 i;
-//     uint256 i2;
-//     BokkyPooBahsRedBlackTreeLibrary.Tree intervals;
-//     // function set() public {
-//     //     uint256 j;
-//     //     for (j = 0; j < 5; j = j.add(1)) {
-//     //         i2 = j;
-//     //     }    
-//     //     i = j;
-//     // }
-//     // function get() public view returns(uint256,uint256) {
-//     //     return (i,i2);
-//     // }
-    
-//     function set(uint256 i) public {
-//         if (intervals.exists(i)) {
-//         } else {
-//         intervals.insert(i);
-//         }
-        
-//     }
-    
-//     function unset(uint256 i) public {
-//         if (intervals.exists(i)) {
-//             intervals.remove(i);
-//         } else {
-        
-//         }
-        
-//     }
-    
-//     function get() public view returns(uint256[] memory) {
-//         uint256 j;
-//         uint256 len;
-//         uint256 next;
-        
-//         next = intervals.first();
-//         while (next != 0) {
-//             len += 1;
-//             next = intervals.next(next);
-//         }    
-
-
-//         uint256[] memory ret = new uint256[](len);
-//         uint256 counter;
-//         next = intervals.first();
-//             while (next != 0) {
-//                 ret[counter] = next;
-//                 counter = counter+1;
-//                 next = intervals.next(next);
-//             } 
-        
-//         return ret;
-//     }
-    
-    
-// }
-// /*
-//  * @title TransferRules contract
-//  * @dev Contract that is checking if on-chain rules for token transfers are concluded.
-//  */
+ 
 contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777RecipientUpgradeable, IDividendsContract {
     
 	using SafeMathUpgradeable for uint256;
 	using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
     //using Address for address;
 	using BokkyPooBahsRedBlackTreeLibrary for BokkyPooBahsRedBlackTreeLibrary.Tree;
-	uint256 private stakeMultiplier;
-	
 	
 	//---------------------------------------------------------------------------------
     // variables section
@@ -110,46 +42,45 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
     event Claimed(address indexed account, uint256 amount);
     event Redeemed(address indexed account, uint256 amount);
     
-    /*
-    struct UPool {
-        uint256 shares;
-        //uint256 accomulatedDividendsForPeriod;
-        //uint256 accomulatedDividendsTotal;
-        uint256 exists;
-    }
-    
-    struct User {
-        mapping(uint256 => UPool) userPool;
-        uint256 lastClaimRedeemTime;
-    }
-    
-    mapping(address => User) users;
-    
-    */
-    
     struct Stake {
         uint256 shares;
-        uint256 dividends;
-        uint256 sumCalculated;
+        mapping(address => uint256) dividends;
+        
     }
     
     struct StakeData {
         mapping(uint256 => Stake) stakes;
+        
+        // mapping(uint256 => uint256) shares;
+        // mapping(uint256 => mapping(address => uint256)) dividends;
+        // mapping(uint256 => uint256) sumCalculated;
+        
         BokkyPooBahsRedBlackTreeLibrary.Tree stakeIndexes;
+        
         uint256 lastDisbursedIndex;
     }
     
     StakeData total;
     
+    
     struct UserStake {
-        StakeData total;
-        BokkyPooBahsRedBlackTreeLibrary.Tree intervals;
+        uint256 shares; // sum shares for period
+        uint256 sharesStarted;
+        uint256 sharesEnded;
+    }
+    
+    struct UserStakeData {
+        mapping(uint256 => UserStake) stakes;
+        BokkyPooBahsRedBlackTreeLibrary.Tree stakeIndexes;
+        
+        uint256 lastSyncIndex;
+        
         uint256 lastClaimRedeemTime;
         // uint256 lastDeltaTotal;
         // uint256 lastDeltaUser;
     }
     
-    mapping(address => UserStake) users;
+    mapping(address => UserStakeData) users;
     
     EnumerableSetUpgradeable.AddressSet whitelist;
     
@@ -171,6 +102,12 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         
     }
     
+/*
+1-5
+5-10
+8-13
+
+*/    
     
     //---------------------------------------------------------------------------------
     // public  section
@@ -179,6 +116,54 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         return interval;
     }
     
+    // claim dividends
+    function claim()
+        public
+    {
+        address addr = msg.sender;
+        _syncUserBuckets(addr);
+        
+        uint256 len = whitelist.length();
+        uint256[] memory amountToPay = new uint256[](len);
+        
+        uint256 intervalCurrent = getIndexInterval(block.timestamp);
+        uint256 i = users[addr].lastClaimRedeemTime;
+        while (i < intervalCurrent && i < total.lastDisbursedIndex) {
+            if (total.stakes[i].shares != 0) {
+                for(uint256 j = 0; i < whitelist.length(); i++) {
+                    if (total.stakes[i].dividends[whitelist.at(j)] != 0) {
+                        // (dividends/total)*user   = user*dividends/total
+                        amountToPay[j] = amountToPay[j].add(
+                                            users[addr].stakes[i].shares
+                                                .mul(total.stakes[i].dividends[whitelist.at(j)])
+                                                .div(total.stakes[i].shares)
+                                        );
+                    }
+                }
+            }
+        
+            
+            users[addr].lastClaimRedeemTime = i;
+            i = users[addr].stakeIndexes.next(i);
+            if (i == 0) {
+                break;
+            }
+        }
+        
+        // try to pay
+        for(uint256 j = 0; i < whitelist.length(); i++) {
+            if (amountToPay[j] != 0) {
+                IERC20Upgradeable(whitelist.at(i)).transfer(addr, amountToPay[j]);
+            }
+        }
+        
+    }
+    
+    function redeem()
+        public
+    {
+        //calculateDividends(_msgSender());
+    }
     //---------------------------------------------------------------------------------
     // internal  section
     //---------------------------------------------------------------------------------
@@ -217,11 +202,12 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         startedIndexInterval = getIndexInterval(block.timestamp);
   
         //make initial setting up for total node
-        total.stakes[startedIndexInterval] = Stake({
-            shares: 0,
-            dividends: 0,
-            sumCalculated: 0
-        });
+        // total.stakes[startedIndexInterval] = Stake({
+        //     shares: 0
+        // });
+        total.stakes[startedIndexInterval].shares = 0;
+        //----
+        
         total.stakeIndexes.insert(startedIndexInterval);
         
         
@@ -231,40 +217,34 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         }
 
     }
-  
-    //---------------------------------------------------------------------------------
-    // external section
-    //---------------------------------------------------------------------------------
-    
-// address a1;
-// address a2;
-// address a3;
-// function get() public view returns(address,address,address) {
-//     return (a1,a2,a3);
-// }
-    
-    function tokensReceived(
-        address /*operator*/,
-        address from,
-        address /*to*/,
-        uint256 amount,
-        bytes calldata /*userData*/,
-        bytes calldata /*operatorData*/
-    ) 
-        override
-        external
-    {
-        // a1 = operator;
-        // a2 = from;
-        // a3 = to;
+// function _beforeTokenTransfer(
+//         address sender,
+//         address recipient,
+//         uint256 amount
+//     ) internal override {
         
-        if (msg.sender == token) {
-            
-            stake(from, amount);
-            
-        }
-    }
-    
+//         if (
+//             (sender == address(0)) && (recipient != address(0))
+//         ) {
+//             // mint
+//             minimumsAdd(recipient, amount, block.timestamp.add(stakeDuration), true);
+//         } else {
+//             // burn
+//             (uint256 retMinimum,) = getMinimum(sender);
+//             uint256 tmpAmount = balanceOf(sender).sub(retMinimum);
+//             require(tmpAmount >= amount, "insufficient balance");
+//             // burn or usual transfer
+//         minimumsTransfer(
+//                 sender, 
+//                 recipient, 
+//                 amount, 
+//                 false, 
+//                 0
+//             );
+        
+//         }
+        
+//     }    
     function _move(
         address operator,
         address from,
@@ -278,25 +258,18 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
             
         // }
         
-        super._move(operator, from, to, amount, userData, operatorData);
+        
         // store balances into buckets
         
         //uint256 currentIndexInterval = getCurrentIndexInterval();
         
         
-        if (from != address(0)) {
-            // users[from].userPool[currentIndexInterval].shares = balanceOf(from);
-            // users[from].userPool[currentIndexInterval].exists = 1;
+        if (from == address(0) || to == address(0)) {
+            super._move(operator, from, to, amount, userData, operatorData);
+        } else {
+            revert('TBD: transfer was temporary disabled');
         }
-        if (to != address(0)) {
-            // uint256 i = currentIndexInterval;
             
-            // users[to].userPool[i].shares = balanceOf(to);
-            // users[to].userPool[i].exists = 1;
-            
-        }
-        
-        //totalShares[currentIndexInterval] = totalSupply();
     }
     
     function stake(
@@ -328,6 +301,7 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         // define intervals
         // uint256 intervalStarted = getCurrentIndexInterval();
         // uint256 intervalEnded = intervalStarted.add(duration);
+        _syncUserBuckets(addr);
         
         if (!total.stakeIndexes.exists(intervalStarted)) {
             total.stakeIndexes.insert(intervalStarted);
@@ -337,20 +311,149 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         // ----------------------
         
         // store to user
-        if (!users[addr].total.stakeIndexes.exists(intervalStarted)) {
-            users[addr].total.stakeIndexes.insert(intervalStarted);
+        if (!users[addr].stakeIndexes.exists(intervalStarted)) {
+            users[addr].stakeIndexes.insert(intervalStarted);
         }
-        users[addr].total.stakes[intervalStarted].shares = users[addr].total.stakes[intervalStarted].shares.add(amount);
+        users[addr].stakes[intervalStarted].shares = users[addr].stakes[intervalStarted].shares.add(amount);
 
-        // /// added intervals
-        // if (!users[addr].intervals.exists(intervalStarted)) {
-        //     users[addr].intervals.insert(intervalStarted);
-        // }
-        // if (!users[addr].intervals.exists(intervalEnded)) {
-        //     users[addr].intervals.insert(intervalEnded);
-        // }
+        // added ended intervals
+        if (!users[addr].stakeIndexes.exists(intervalEnded)) {
+            users[addr].stakeIndexes.insert(intervalEnded);
+        }
+        users[addr].stakes[intervalEnded].sharesEnded = users[addr].stakes[intervalEnded].sharesEnded.add(amount);
         
     }
+    
+    function _disburse(
+        address token_, 
+        uint256 amount_
+    ) 
+        internal 
+    {
+        uint256 intervalCurrent = getIndexInterval(block.timestamp);
+        
+        // if current disburse inteval not equal with last. we check totalShares. if totalShares == 0 we move dividends from that interval to current
+        if (total.lastDisbursedIndex != intervalCurrent) {
+            if (total.stakes[total.lastDisbursedIndex].shares == 0) {
+                for(uint256 i = 0; i < whitelist.length(); i++) {
+                    total.stakes[intervalCurrent].dividends[whitelist.at(i)] = total.stakes[total.lastDisbursedIndex].dividends[whitelist.at(i)];
+                }
+            }
+            total.lastDisbursedIndex == intervalCurrent;
+        }
+        
+        // save dividends
+        total.stakes[intervalCurrent].dividends[token_] = total.stakes[intervalCurrent].dividends[token_].add(amount_);
+
+    }
+    
+    /**
+     * methdo that ewill sync [usershares] variable to last condition
+     */
+    function _syncUserBuckets(
+        address addr
+    ) 
+        internal 
+    {
+        uint256 intervalCurrent = getIndexInterval(block.timestamp);
+        if (users[addr].lastSyncIndex == intervalCurrent) {
+            
+        } else {
+            uint256 i = users[addr].lastSyncIndex;
+            while (i < intervalCurrent) {
+                users[addr].stakes[i].shares = users[addr].stakes[i].shares.sub(users[addr].stakes[i].sharesEnded);
+                users[addr].lastSyncIndex = i;
+                i = users[addr].stakeIndexes.next(i);
+                if (i == 0) {
+                    break;
+                }
+            }
+            users[addr].lastSyncIndex = intervalCurrent;
+        }
+        
+        
+        /*
+         struct UserStake {
+        uint256 shares; // sum shares for period
+        uint256 sharesStarted;
+        uint256 sharesEnded;
+    }
+    
+    struct UserStakeData {
+        mapping(uint256 => UserStake) stakes;
+        BokkyPooBahsRedBlackTreeLibrary.Tree stakeIndexes;
+        
+        uint256 lastSyncIndex;
+        
+        uint256 lastClaimRedeemTime;
+        // uint256 lastDeltaTotal;
+        // uint256 lastDeltaUser;
+    }
+    
+    mapping(address => UserStakeData) users;
+        */
+    }
+    //---------------------------------------------------------------------------------
+    // external section
+    //---------------------------------------------------------------------------------
+    
+// address a1;
+// address a2;
+// address a3;
+// function get() public view returns(address,address,address) {
+//     return (a1,a2,a3);
+// }
+    function disburse(
+        address token_, 
+        uint256 amount_
+    ) 
+        external 
+        override 
+    {
+        require(whitelist.contains(token_), "invalid token_");
+        
+        // try to check allowance
+        uint256 _allowedAmount = IERC20Upgradeable(token_).allowance(_msgSender(), address(this));
+        require((_allowedAmount >= amount_), "Amount exceeds allowed balance");
+        // try to get
+        bool success = IERC20Upgradeable(token_).transferFrom(_msgSender(), address(this), amount_);
+        require(success == true, "Transfer tokens were failed"); 
+        
+        // save dividends
+        _disburse(token_, amount_);
+        
+
+    }
+    function tokensReceived(
+        address /*operator*/,
+        address from,
+        address /*to*/,
+        uint256 amount,
+        bytes calldata /*userData*/,
+        bytes calldata /*operatorData*/
+    ) 
+        override
+        external
+    {
+        // a1 = operator;
+        // a2 = from;
+        // a3 = to;
+        
+        if (msg.sender == token) {
+            
+            stake(from, amount);
+            
+        } else if (whitelist.contains(msg.sender)) {
+
+            // save dividends
+            _disburse(msg.sender, amount);
+        } else {
+            revert("unsupported tokens");
+        }
+        
+    }
+    
+    
     
     // function _disburse() internal {
     //     uint256 lastIntervalToCalculate = getPrevIndexInterval(block.timestamp);
@@ -492,20 +595,7 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         return getIndexInterval(ts).sub(interval);
     }
     
-    function claim()
-        public
-    {
-        // calculate 
-        
-        
-        //calculateDividends(_msgSender());
-    }
-    
-    function redeem()
-        public
-    {
-        //calculateDividends(_msgSender());
-    }
+
 /*
     
     function claim()
