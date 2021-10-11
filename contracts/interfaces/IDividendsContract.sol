@@ -5,7 +5,7 @@ interface IDividendsContract {
     function initialize(string memory, string memory, address[] memory, uint256, uint256, uint256, address, address[] memory) external;
     function getInterval() external view returns(uint256);
     function getMultiplier() external view returns(uint256);
-    function getSharesSum(uint256) external returns(uint256);
+    function getSharesSum(uint256) external view returns(uint256);
     function disburse(address, uint256) external;
     // function stake(address, uint256) external;
     // function claim() external;
