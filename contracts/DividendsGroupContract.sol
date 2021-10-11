@@ -17,29 +17,36 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 import "./interfaces/IDividendsGroupContract.sol";
 import "./interfaces/IDividendsContract.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 
 contract DividendsGroupContract is IDividendsGroupContract, OwnableUpgradeable {
     
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
+    using SafeMathUpgradeable for uint256;
+    
+    event Distribute(address token, uint256 amount);
+    
     //---------------------------------------------------------------------------------
     // variables section
     //---------------------------------------------------------------------------------
     EnumerableSetUpgradeable.AddressSet dividendsContracts;
     uint256 public interval;
+    uint256 public token;
     //---------------------------------------------------------------------------------
     // public  section
     //---------------------------------------------------------------------------------
     function initialize(
+        uint256 token,
         uint256 interval_
     ) 
         public 
         initializer
         override
     {
-        __DividendsGroupContract_init(interval_);
+        __DividendsGroupContract_init(token_, interval_);
         
     }
     
@@ -92,8 +99,36 @@ contract DividendsGroupContract is IDividendsGroupContract, OwnableUpgradeable {
         onlyOwner 
         public 
     {
-        // TBD
         
+        // validate amount
+        // TBD
+        // ---------
+        
+        uint256 len = dividendsContracts.length();
+        uint256[] memory sum = new uint256[](len);
+        uint256[] memory multipliers = new uint256[](len);
+        uint256 sumTotal;
+        uint256 indexInterval = getIndexInterval(block.timestamp);
+        
+        for(uint256 i = 0; i< len; i++) {
+            sum[i] = (IDividendsContract(dividendsContracts.at(i)).getMultiplier())
+                    .mul(
+                        IDividendsContract(dividendsContracts.at(i)).getSharesSum(indexInterval)
+                    )
+            ;
+            sumTotal = sumTotal.add(sum[i]);
+
+        }
+        
+        uint256 amount2send;
+        for(uint256 i = 0; i< len; i++) {
+            amount2send = amount.mul(sum[i]).div(sumTotal);
+            if (amount2send > 0) {
+                IERC20Upgradeable(dividendsContracts.at(i)).transfer(amount2send);
+                emit Distribute(token, amount2send);
+            }
+            
+        }
     }
     
     //---------------------------------------------------------------------------------
@@ -101,6 +136,7 @@ contract DividendsGroupContract is IDividendsGroupContract, OwnableUpgradeable {
     //---------------------------------------------------------------------------------
     
     function __DividendsGroupContract_init(
+        address token_,
         uint256 interval_
     ) 
         internal
@@ -109,7 +145,13 @@ contract DividendsGroupContract is IDividendsGroupContract, OwnableUpgradeable {
         __Ownable_init();
         
         require(interval_ != 0, 'wrong interval');
+        
+        token = token_;
         interval = interval_;
+    }
+    
+    function getIndexInterval(uint256 ts) internal view returns(uint256) {
+        return (ts).div(interval).mul(interval);
     }
     
 }

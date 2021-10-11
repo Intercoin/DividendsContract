@@ -12,7 +12,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
  * Realization a restriction limits for user transfer
  * 
  */
-abstract contract Minimums is Initializable, ContextUpgradeable {
+abstract contract Minimums is Initializable, ContextUpgradeable, OwnableUpgradeable {
     
     using SafeMathUpgradeable for uint256;
 	using MathUpgradeable for uint256;
@@ -46,7 +46,7 @@ abstract contract Minimums is Initializable, ContextUpgradeable {
         internal
         initializer 
     {
-        //__Ownable_init();
+        __Ownable_init();
         if (dayInSeconds_ == 0) {
             // set default
             dayInSeconds = 86400;
@@ -84,7 +84,7 @@ abstract contract Minimums is Initializable, ContextUpgradeable {
         bool gradual
     ) 
         public
-//        onlyOwner()
+        onlyOwner()
         returns (bool)
     {
         require(timestamp > block.timestamp, 'timestamp is less then current block.timestamp');
@@ -110,7 +110,7 @@ abstract contract Minimums is Initializable, ContextUpgradeable {
         address addr
     )
         public 
-//        onlyOwner()
+        onlyOwner()
         returns (bool)
     {
         return _minimumsClear(addr, true);
@@ -125,7 +125,7 @@ abstract contract Minimums is Initializable, ContextUpgradeable {
         uint256 daysAmount
     )
         public 
-//        onlyOwner()
+        onlyOwner()
     {
         users[from].lockup.duration = daysAmount.mul(dayInSeconds);
         users[from].lockup.exists = true;
@@ -138,7 +138,7 @@ abstract contract Minimums is Initializable, ContextUpgradeable {
         address from
     )
         public 
-//        onlyOwner()
+        onlyOwner()
     {
         users[from].lockup.exists = false;
     }

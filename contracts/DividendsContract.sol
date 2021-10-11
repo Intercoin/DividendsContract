@@ -115,6 +115,13 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
     function getInterval() public view override returns(uint256) {
         return interval;
     }
+    function getMultiplier() public view override returns(uint256) {
+        return multiplier;
+    }
+    function getSharesSum(uint256 intervalIndex) external override returns(uint256) {
+        // TBD
+        return 1;
+    }
     
     // claim dividends
     function claim()
