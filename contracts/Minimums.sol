@@ -33,25 +33,25 @@ abstract contract Minimums is Initializable, ContextUpgradeable, OwnableUpgradea
     struct UserStruct {
         EnumerableSetUpgradeable.UintSet minimumsIndexes;
         mapping(uint256 => Minimum) minimums;
-        mapping(uint256 => uint256) dailyAmounts;
+        //mapping(uint256 => uint256) dailyAmounts;
         Lockup lockup;
     }
     
-    mapping (address => UserStruct) users;
-    uint256 internal dayInSeconds;
+    mapping (address => UserStruct) private users;
+    uint256 private interval;
     
     function __Minimums_init(
-        uint256 dayInSeconds_
+        uint256 interval_
     ) 
         internal
         initializer 
     {
         __Ownable_init();
-        if (dayInSeconds_ == 0) {
-            // set default
-            dayInSeconds = 86400;
+        if (interval == 0) {
+            // set default via dayInSeconds
+            interval = 86400;
         } else {
-            dayInSeconds = dayInSeconds_;
+            interval = interval_;
         }
         
     }
@@ -87,13 +87,13 @@ abstract contract Minimums is Initializable, ContextUpgradeable, OwnableUpgradea
         onlyOwner()
         returns (bool)
     {
-        require(timestamp > block.timestamp, 'timestamp is less then current block.timestamp');
+        require(timestamp > getIndexInterval(block.timestamp), 'timestamp is less then current block.timestamp');
         
         _minimumsClear(addr, false);
         require(users[addr].minimumsIndexes.add(timestamp), 'minimum already exist');
         
         //users[addr].data[timestamp] = minimum;
-        users[addr].minimums[timestamp].timestampStart = block.timestamp;
+        users[addr].minimums[timestamp].timestampStart = getIndexInterval(block.timestamp);
         users[addr].minimums[timestamp].timestampEnd = timestamp;
         users[addr].minimums[timestamp].amount = amount;
         users[addr].minimums[timestamp].gradual = gradual;
@@ -118,16 +118,16 @@ abstract contract Minimums is Initializable, ContextUpgradeable, OwnableUpgradea
     
     /**
      * @param from will add automatic lockup for destination address sent address from
-     * @param daysAmount duration in days
+     * @param duration duration in count of intervals defined before
      */
     function automaticLockupAdd(
         address from,
-        uint256 daysAmount
+        uint256 duration
     )
         public 
         onlyOwner()
     {
-        users[from].lockup.duration = daysAmount.mul(dayInSeconds);
+        users[from].lockup.duration = duration.mul(interval);
         users[from].lockup.exists = true;
     }
     
@@ -206,7 +206,7 @@ abstract contract Minimums is Initializable, ContextUpgradeable, OwnableUpgradea
                 mapIndex = users[addr].minimumsIndexes.at(i-1);
                 if (
                     (deleteAnyway == true) ||
-                    (block.timestamp > users[addr].minimums[mapIndex].timestampEnd)
+                    (getIndexInterval(block.timestamp) > users[addr].minimums[mapIndex].timestampEnd)
                 ) {
                     delete users[addr].minimums[mapIndex];
                     users[addr].minimumsIndexes.remove(mapIndex);
@@ -234,7 +234,7 @@ abstract contract Minimums is Initializable, ContextUpgradeable, OwnableUpgradea
     {
 
         if (users[receiver].minimumsIndexes.add(timestampEnd) == true) {
-            users[receiver].minimums[timestampEnd].timestampStart = block.timestamp;
+            users[receiver].minimums[timestampEnd].timestampStart = getIndexInterval(block.timestamp);
             users[receiver].minimums[timestampEnd].amount = value;
             users[receiver].minimums[timestampEnd].timestampEnd = timestampEnd;
             users[receiver].minimums[timestampEnd].gradual = gradual; 
@@ -274,15 +274,11 @@ abstract contract Minimums is Initializable, ContextUpgradeable, OwnableUpgradea
      * @param from sender address
      * @param to destination address
      * @param value amount
-     * @param reduceTimeDiff if true then all timestamp which more then minTimeDiff will reduce to minTimeDiff
-     * @param minTimeDiff minimum lockup period time or if reduceTimeDiff==false it is time to left tokens
      */
     function minimumsTransfer(
         address from, 
         address to, 
-        uint256 value, 
-        bool reduceTimeDiff,
-        uint256 minTimeDiff
+        uint256 value
     )
         internal
     {
@@ -290,7 +286,7 @@ abstract contract Minimums is Initializable, ContextUpgradeable, OwnableUpgradea
 
         uint256 len = users[from].minimumsIndexes.length();
         uint256[] memory _dataList;
-        uint256 recieverTimeLeft;
+        //uint256 recieverTimeLeft;
     
         if (len > 0) {
             _dataList = new uint256[](len);
@@ -318,11 +314,11 @@ abstract contract Minimums is Initializable, ContextUpgradeable, OwnableUpgradea
                         value = 0;
                     }
 
-                    recieverTimeLeft = users[from].minimums[_dataList[i]].timestampEnd.sub(block.timestamp);
+                    //recieverTimeLeft = users[from].minimums[_dataList[i]].timestampEnd.sub(block.timestamp);
                     // put to reciver
                     _appendMinimum(
                         to,
-                        block.timestamp.add((reduceTimeDiff ? minTimeDiff.min(recieverTimeLeft) : recieverTimeLeft)),
+                        users[from].minimums[_dataList[i]].timestampEnd,
                     iValue,
                         false //users[from].data[_dataList[i]].gradual
                     );
@@ -349,13 +345,17 @@ abstract contract Minimums is Initializable, ContextUpgradeable, OwnableUpgradea
             
             _appendMinimum(
                 to,
-                block.timestamp.add(minTimeDiff),
+                block.timestamp,//block.timestamp.add(minTimeDiff),
                 value,
                 false
             );
         }
      
         
+    }
+    
+    function getIndexInterval(uint256 ts) internal view returns(uint256) {
+        return (ts).div(interval).mul(interval);
     }
     
     // useful method to sort native memory array 

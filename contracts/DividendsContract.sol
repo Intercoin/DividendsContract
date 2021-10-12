@@ -1,22 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-
-
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
-
-import "./erc777/ERC777LayerUpgradeable.sol";
-
-
-
 import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
 
+import "./erc777/ERC777LayerUpgradeable.sol";
 import "./lib/SumLibrary.sol";
 import "./interfaces/IDividendsContract.sol";
+import "./Minimums.sol";
+
  
-contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777RecipientUpgradeable, IDividendsContract {
+contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777RecipientUpgradeable, IDividendsContract, Minimums {
     
 	using SafeMathUpgradeable for uint256;
 	using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
@@ -33,6 +29,8 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
     uint256 interval;
     uint256 multiplier;
     
+    // percent of shares to lockup 
+    uint256 lockupPeriod;
     // index stored when contract deployed
     uint256 startedIndexInterval;
     
@@ -42,15 +40,18 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
     event Claimed(address indexed account, uint256 amount);
     event Redeemed(address indexed account, uint256 amount);
     
-    
+    struct UserData {
+        SumLibrary.Data balances;
+        uint256 lastClaimedIndex;    
+    }
     SumLibrary.Data totalShares;
-    mapping(address => SumLibrary.Data) userTotalShares;
+    mapping(address => UserData) users;
     
     //      token        dividends / activeShares
     mapping(address => SumLibrary.Data) sumDividendsAndActiveShares;
 
     uint256 lastDisbursedIndex;
-    uint256 lastClaimedIndex;
+    
 
     EnumerableSetUpgradeable.AddressSet whitelist;
     
@@ -68,7 +69,9 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         initializer
         override
     {
+        
         __DividendsContract_init(name_, symbol_, defaultOperators_, interval_, duration_, multiplier_, token_, whitelist_);
+        __Minimums_init(interval_);
         
     }
    
@@ -109,43 +112,61 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
     function claim()
         public
     {
-        // address addr = msg.sender;
-        // _syncUserBuckets(addr);
         
-        // uint256 len = whitelist.length();
-        // uint256[] memory amountToPay = new uint256[](len);
+    // var total = 0;
+    // for (i=_lastClaimedIndex; true; ++i) {
+    //     for (dividendTokens as token) {
+    //         var sum1 = sum[token].get(times[i]);
+    //         var sum2 = sum[token].get(times[i+1]);
+    //         total += (sum2 - sum1) * _amounts[msg.caller][i];
+    //     }
+    //     if (times[i] >= _lastDisburseTime) {
+    //         // no more tokens to claim, for now
+    //         break;
+    //     }
+    // }
+    // lastClaimedIndex = i;
+    // return total;
+    
+        address addr = msg.sender;
+        uint256 len = whitelist.length();
+        uint256[] memory amountToPay = new uint256[](len);
+        uint256 intervalCurrent = getIndexInterval(block.timestamp);
+        //uint256 i = users[addr].lastClaimRedeemTime;
+        uint256 i = users[addr].lastClaimedIndex;
         
-        // uint256 intervalCurrent = getIndexInterval(block.timestamp);
-        // uint256 i = users[addr].lastClaimRedeemTime;
-        // while (i < intervalCurrent && i < total.lastDisbursedIndex) {
-        //     if (total.stakes[i].shares != 0) {
-        //         for(uint256 j = 0; i < whitelist.length(); i++) {
-        //             if (total.stakes[i].dividends[whitelist.at(j)] != 0) {
-        //                 // (dividends/total)*user   = user*dividends/total
-        //                 amountToPay[j] = amountToPay[j].add(
-        //                                     users[addr].stakes[i].shares
-        //                                         .mul(total.stakes[i].dividends[whitelist.at(j)])
-        //                                         .div(total.stakes[i].shares)
-        //                                 );
-        //             }
-        //         }
-        //     }
+        // setup i is when the contract started
+        if (i == 0) {
+            i = startedIndexInterval;
+        }
+        
+        uint256 totalSharesinInterval;
+        while (i < intervalCurrent && i < lastDisbursedIndex) {
+            totalSharesinInterval = totalShares.get(i);
+            if (totalSharesinInterval != 0) {
+                for(uint256 j = 0; i < whitelist.length(); i++) {
+                        // (dividends/total)*user   = user*dividends/total
+                        amountToPay[j] = amountToPay[j].add(
+                            sumDividendsAndActiveShares[whitelist.at(j)].get(i)
+                            .mul(users[addr].balances.get(i))
+                        );
+                }
+            }
         
             
-        //     users[addr].lastClaimRedeemTime = i;
-        //     i = users[addr].stakeIndexes.next(i);
-        //     if (i == 0) {
-        //         break;
-        //     }
-        // }
-        
-        // // try to pay
-        // for(uint256 j = 0; i < whitelist.length(); i++) {
-        //     if (amountToPay[j] != 0) {
-        //         IERC20Upgradeable(whitelist.at(i)).transfer(addr, amountToPay[j]);
-        //     }
-        // }
-        
+            users[addr].lastClaimedIndex = i;
+            
+            if (i == 0) {
+                break;
+            }
+        }
+    
+        // try to pay
+        for(uint256 j = 0; i < whitelist.length(); i++) {
+            if (amountToPay[j] != 0) {
+                IERC20Upgradeable(whitelist.at(i)).transfer(addr, amountToPay[j]);
+            }
+        }
     }
     
     function redeem()
@@ -188,9 +209,11 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         
         stakeMultiplier = 1_000_000_000;
         
+        lockupPeriod = 100;// 1 % mul by 1e2
+        
         startedIndexInterval = getIndexInterval(block.timestamp);
         lastDisbursedIndex = startedIndexInterval;
-        lastClaimedIndex = startedIndexInterval;
+        //lastClaimedIndex = startedIndexInterval;
     
         // whitelist
         for (uint256 i =0; i<whitelist_.length; i++) {
@@ -208,10 +231,32 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         bytes memory operatorData
     ) internal override {
         
+        
+        
         if (from == address(0) || to == address(0)) {
+            
+            
             super._move(operator, from, to, amount, userData, operatorData);
+            
+            if (from == address(0)) {
+                // function minimumsAdd(address addr,uint256 amount, uint256 timestamp,bool gradual)
+                minimumsAdd(to, amount.mul(lockupPeriod).div(10000), getIndexInterval(block.timestamp).add(interval),false);
+            }
+    
         } else {
-            revert('TBD: transfer was temporary disabled');
+
+            /**
+             * 
+             * @param from sender address
+             * @param to destination address
+             * @param value amount
+             * @param reduceTimeDiff if true then all timestamp which more then minTimeDiff will reduce to minTimeDiff
+             * @param minTimeDiff minimum lockup period time or if reduceTimeDiff==false it is time to left tokens
+             */
+            minimumsTransfer(from, to, amount);
+            
+            super._move(operator, from, to, amount, userData, operatorData);
+            //revert('TBD: transfer was temporary disabled');
         }
             
     }
@@ -225,9 +270,9 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         super._mint(account, amount, userData, operatorData);
         
         // define intervals
-        uint256 intervalCurrent = getIndexInterval(block.timestamp);
-        (userTotalShares[account]).add(balanceOf(account));
-        totalShares.add(totalSupply());
+        //uint256 intervalCurrent = getIndexInterval(block.timestamp);
+        (users[account].balances).add(balanceOf(account));
+        totalShares.addSum(totalSupply());
         
         emit Staked(account, amount);
     }
@@ -241,9 +286,9 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         super._burn(from, amount, data, operatorData);
         
         // define intervals
-        uint256 intervalCurrent = getIndexInterval(block.timestamp);
-        userTotalShares[from].add(balanceOf(from));
-        totalShares.add(totalSupply());
+        //uint256 intervalCurrent = getIndexInterval(block.timestamp);
+        (users[from].balances).add(balanceOf(from));
+        totalShares.addSum(totalSupply());
     }
     
     function stake(
@@ -264,23 +309,19 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
     ) 
         internal 
     {
-        
         uint256 intervalCurrent = getIndexInterval(block.timestamp);
-        
-        if (lastDisbursedIndex < intervalCurrent) {
-            
-            sumDividendsAndActiveShares[token_].add(
-                amount_
-                .mul(stakeMultiplier)
-                .div(
-                    totalShares.get(intervalCurrent)
-                    .sub(totalShares.get(lastDisbursedIndex))
-                )
-            );
-              lastDisbursedIndex = intervalCurrent;
-    
-        }
-
+        require (lastDisbursedIndex < intervalCurrent, "already disbursed");
+        //if (lastDisbursedIndex < intervalCurrent) {
+        sumDividendsAndActiveShares[token_].add(
+            amount_
+            .mul(stakeMultiplier)
+            .div(
+                totalShares.get(intervalCurrent)
+                .sub(totalShares.get(lastDisbursedIndex))
+            )
+        );
+        lastDisbursedIndex = intervalCurrent;
+        //}
     }
     
     //---------------------------------------------------------------------------------
@@ -391,16 +432,16 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
     // }
 
  
-    function getIndexInterval(uint256 ts) internal view returns(uint256) {
-        return (ts).div(interval).mul(interval);
-    }
+    // function getIndexInterval(uint256 ts) internal view returns(uint256) {
+    //     return (ts).div(interval).mul(interval);
+    // }
     
-    function getNextIndexInterval(uint256 ts) internal view returns(uint256) {
-        return getIndexInterval(ts).add(interval);
-    }
-    function getPrevIndexInterval(uint256 ts) internal view returns(uint256) {
-        return getIndexInterval(ts).sub(interval);
-    }
+    // function getNextIndexInterval(uint256 ts) internal view returns(uint256) {
+    //     return getIndexInterval(ts).add(interval);
+    // }
+    // function getPrevIndexInterval(uint256 ts) internal view returns(uint256) {
+    //     return getIndexInterval(ts).sub(interval);
+    // }
     
 
 }

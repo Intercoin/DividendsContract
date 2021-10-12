@@ -29,13 +29,17 @@ library SumLibrary {
     //     }
     // }
 
-    function add(Data storage self, uint256 value) internal {
+    function addSum(Data storage self, uint256 value) internal {
         uint256 timeNow = _now();
         if (self.list.last() < timeNow) {
             self.sum[timeNow] = value;
         } else {
             self.sum[timeNow] = self.sum[timeNow].add(value);
         }
+    }
+    function add(Data storage self, uint256 value) internal {
+        uint256 timeNow = _now();
+        self.sum[timeNow] = value;
     }
     // get(index) {
     //     if (_values[index]) {
