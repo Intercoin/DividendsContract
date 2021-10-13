@@ -21,25 +21,29 @@ import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 import "./interfaces/IDividendsGroupContract.sol";
 import "./interfaces/IDividendsContract.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/introspection/IERC1820RegistryUpgradeable.sol";
 
-contract DividendsGroupContract is IDividendsGroupContract, OwnableUpgradeable {
+contract DividendsGroupContract is IDividendsGroupContract, OwnableUpgradeable, IERC777RecipientUpgradeable {
     
     using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
     using SafeMathUpgradeable for uint256;
+    IERC1820RegistryUpgradeable internal constant _ERC1820_REGISTRY = IERC1820RegistryUpgradeable(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
     
-    event Distribute(address token, uint256 amount);
+    bytes32 constant private TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
+    event Distribute(address token, address dividendContract, uint256 amount);
     
     //---------------------------------------------------------------------------------
     // variables section
     //---------------------------------------------------------------------------------
     EnumerableSetUpgradeable.AddressSet dividendsContracts;
     uint256 public interval;
-    uint256 public token;
+    address public token;
     //---------------------------------------------------------------------------------
     // public  section
     //---------------------------------------------------------------------------------
     function initialize(
-        uint256 token,
+        address token_,
         uint256 interval_
     ) 
         public 
@@ -106,7 +110,7 @@ contract DividendsGroupContract is IDividendsGroupContract, OwnableUpgradeable {
         
         uint256 len = dividendsContracts.length();
         uint256[] memory sum = new uint256[](len);
-        uint256[] memory multipliers = new uint256[](len);
+        //uint256[] memory multipliers = new uint256[](len);
         uint256 sumTotal;
         uint256 indexInterval = getIndexInterval(block.timestamp);
         
@@ -120,12 +124,13 @@ contract DividendsGroupContract is IDividendsGroupContract, OwnableUpgradeable {
 
         }
         
+        require(sumTotal > 0, "total is equal zero") ;
         uint256 amount2send;
         for(uint256 i = 0; i< len; i++) {
             amount2send = amount.mul(sum[i]).div(sumTotal);
             if (amount2send > 0) {
-                IERC20Upgradeable(dividendsContracts.at(i)).transfer(amount2send);
-                emit Distribute(token, amount2send);
+                IERC20Upgradeable(token).transfer(dividendsContracts.at(i), amount2send);
+                emit Distribute(token, dividendsContracts.at(i), amount2send);
             }
             
         }
@@ -145,13 +150,31 @@ contract DividendsGroupContract is IDividendsGroupContract, OwnableUpgradeable {
         __Ownable_init();
         
         require(interval_ != 0, 'wrong interval');
+        _ERC1820_REGISTRY.setInterfaceImplementer(address(this), keccak256("ERC777Token"), address(this));
+        _ERC1820_REGISTRY.setInterfaceImplementer(address(this), keccak256("ERC20Token"), address(this));
+        
+        _ERC1820_REGISTRY.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
         
         token = token_;
         interval = interval_;
     }
     
-    function getIndexInterval(uint256 ts) internal view returns(uint256) {
+    function getIndexInterval(uint256 ts) public view returns(uint256) {
         return (ts).div(interval).mul(interval);
     }
-    
+  
+    function tokensReceived(
+        address /*operator*/,
+        address from,
+        address /*to*/,
+        uint256 amount,
+        bytes calldata /*userData*/,
+        bytes calldata /*operatorData*/
+    ) 
+        override
+        external
+    {
+       
+        
+    }
 }

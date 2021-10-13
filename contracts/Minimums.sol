@@ -47,7 +47,7 @@ abstract contract Minimums is Initializable, ContextUpgradeable, OwnableUpgradea
         initializer 
     {
         __Ownable_init();
-        if (interval == 0) {
+        if (interval_ == 0) {
             // set default via dayInSeconds
             interval = 86400;
         } else {

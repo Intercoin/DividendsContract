@@ -10,7 +10,7 @@ import "./interfaces/IDividendsGroupContract.sol";
  * @title TransferRules contract
  * @dev Contract that is checking if on-chain rules for token transfers are concluded.
  */
-contract DividendsFactory is FactoryBase {
+contract DividendsGroupFactory is FactoryBase {
     
     //---------------------------------------------------------------------------------
     // public  section
@@ -29,13 +29,14 @@ contract DividendsFactory is FactoryBase {
     }
     
     function produceInstance(
+        address token,
         uint256 interval
     ) 
         public 
         returns(address) 
     {
         address proxy = _produce();
-        IDividendsGroupContract(proxy).initialize(interval);
+        IDividendsGroupContract(proxy).initialize(token, interval);
         OwnableUpgradeable(proxy).transferOwnership(_getProducedSender());
         return proxy;
     }

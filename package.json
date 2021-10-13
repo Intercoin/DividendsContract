@@ -17,6 +17,8 @@
   },
   "homepage": "https://github.com/Intercoin/DividendsContract#readme",
   "dependencies": {
+    
+    "@openzeppelin/test-helpers": "^0.5.10",
     "@openzeppelin/contracts": "^4.1.0",
     "@openzeppelin/contracts-upgradeable": "^4.1.0",
     "@truffle/hdwallet-provider": "1.0.40",

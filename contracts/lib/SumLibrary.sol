@@ -5,18 +5,13 @@ import "./BokkyPooBahsRedBlackTreeLibrary.sol";
 import "@openzeppelin/contracts-upgradeable/utils/math/SafeMathUpgradeable.sol";
 
 library SumLibrary {
-    using BokkyPooBahsRedBlackTreeLibrary for BokkyPooBahsRedBlackTreeLibrary.Tree;
+    
     using SafeMathUpgradeable for uint256;
+    using BokkyPooBahsRedBlackTreeLibrary for BokkyPooBahsRedBlackTreeLibrary.Tree;
     
     struct Data {
         mapping (uint256 => uint256) sum;
         BokkyPooBahsRedBlackTreeLibrary.Tree list;
-    }
-
-    uint256 private constant INTERVAL = 604800; //// * interval: WEEK by default
-
-    function _now() private view returns(uint256) {
-        return (block.timestamp / INTERVAL) * INTERVAL;
     }
 
     // add(value) {
@@ -29,17 +24,17 @@ library SumLibrary {
     //     }
     // }
 
-    function addSum(Data storage self, uint256 value) internal {
-        uint256 timeNow = _now();
-        if (self.list.last() < timeNow) {
-            self.sum[timeNow] = value;
+    function addSum(Data storage self, uint256 index, uint256 value) internal {
+        if (self.list.last() < index) {
+            self.sum[index] = value;
         } else {
-            self.sum[timeNow] = self.sum[timeNow].add(value);
+            self.sum[index] = self.sum[index].add(value);
         }
+        insertIfNotExist(self, index);
     }
-    function add(Data storage self, uint256 value) internal {
-        uint256 timeNow = _now();
-        self.sum[timeNow] = value;
+    function add(Data storage self, uint256 index, uint256 value) internal {
+        self.sum[index] = value;
+        insertIfNotExist(self, index);
     }
     // get(index) {
     //     if (_values[index]) {
@@ -64,5 +59,33 @@ library SumLibrary {
             return 0;
         }
     }
+    
+    function insertIfNotExist(Data storage self, uint256 index) private {
+        if (!self.list.exists(index)) {
+            self.list.insert(index);
+        } 
+    }
+    
+}
 
+ 
+contract T  {
+    
+	using SafeMathUpgradeable for uint256;
+	using SumLibrary for SumLibrary.Data;
+	
+	SumLibrary.Data q;
+	
+    function _now(uint256 interval) internal view returns(uint256) {
+        return (block.timestamp).div(interval).mul(interval);
+    }
+
+	
+	function get(uint256 interval) public view returns(uint256) {
+	    return q.get(_now(interval));
+	}
+	function addSum(uint256 interval, uint256 w) public  {
+	    q.addSum(interval,w);
+	}
+	
 }
