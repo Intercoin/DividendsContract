@@ -69,23 +69,23 @@ library SumLibrary {
 }
 
  
-contract T  {
+// contract T  {
     
-	using SafeMathUpgradeable for uint256;
-	using SumLibrary for SumLibrary.Data;
+// 	using SafeMathUpgradeable for uint256;
+// 	using SumLibrary for SumLibrary.Data;
 	
-	SumLibrary.Data q;
+// 	SumLibrary.Data q;
 	
-    function _now(uint256 interval) internal view returns(uint256) {
-        return (block.timestamp).div(interval).mul(interval);
-    }
+//     function _now(uint256 interval) internal view returns(uint256) {
+//         return (block.timestamp).div(interval).mul(interval);
+//     }
 
 	
-	function get(uint256 interval) public view returns(uint256) {
-	    return q.get(_now(interval));
-	}
-	function addSum(uint256 interval, uint256 w) public  {
-	    q.addSum(interval,w);
-	}
+// 	function get(uint256 interval) public view returns(uint256) {
+// 	    return q.get(_now(interval));
+// 	}
+// 	function addSum(uint256 interval, uint256 w) public  {
+// 	    q.addSum(interval,w);
+// 	}
 	
-}
+// }
