@@ -2,10 +2,10 @@
 Operates pools for distributing dividends to reward investors staking ERC20 token or liquidity pool tokens.
 
 ## Docs contracts
-- DividendsContract
-- DividendsFactory
-- DividendsGroupContract
-- DividendsGroupFactory
+- [DividendsContract](/docs/md/DividendsContract.md) ([abi](/docs/abi/DividendsContract.json))
+- [DividendsFactory](/docs/md/DividendsFactory.md) ([abi](/docs/abi/DividendsFactory.json))
+- [DividendsGroupContract](/docs/md/DividendsGroupContract.md) ([abi](/docs/abi/DividendsGroupContract.json))
+- [DividendsGroupFactory](/docs/md/DividendsGroupFactory.md) ([abi](/docs/abi/DividendsGroupFactory.json))
 
 ## Install
 1. deploy instances: DividendsContract and DividendsGroupContract
@@ -15,12 +15,12 @@ Operates pools for distributing dividends to reward investors staking ERC20 toke
 
 ## General 
 how it works.
-Below we describe a lot of tokens:
-T1 - stake erc20/erc777tokens
-T2 - dividends erc20/erc777tokens
-T3 - rewards erc20/erc777 tokens
+Below we describe a lot of tokens:  
+- T1 - stake erc20/erc777tokens  
+- T2 - dividends erc20/erc777tokens  
+- T3 - rewards erc20/erc777 tokens  
 
-User can stake  T1 token by sending it to DividendsContract. 
-DividendsContract receiving T1 tokens and send T2 tokens back to user and hold them for a some period.
-In turn, DividendsGroupContract can `disburse` such DividendsContract any T3 tokens(that was setup while initialization in DividendsContract) to users as reward for hold T2 tokens.
-User can `claim` to obtain T3 tokens or can `redeem` to get back T1 tokens(T2 will be burn)
+User can stake  T1 token by sending it to DividendsContract.  
+DividendsContract receiving T1 tokens and send T2 tokens back to user and hold them for a some period.  
+In turn, DividendsGroupContract can `disburse` such DividendsContract any T3 tokens(that was setup while initialization in DividendsContract) to users as reward for hold T2 tokens.  
+User can `claim` to obtain T3 tokens or can `redeem` to get back T1 tokens(T2 will be burn)  
