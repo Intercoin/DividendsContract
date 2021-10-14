@@ -1,0 +1,1 @@
+# DividendsFactory.md
