@@ -19,7 +19,7 @@ Once installed will be use methods:
 </thead>
 <tbody>
 	<tr>
-		<td><a href="#init">initialize</a></td>
+		<td><a href="#initialize">initialize</a></td>
 		<td>anyone</td>
 		<td>initializing after deploy. Can be called only once if was created out of factory</td>
 	</tr>
@@ -66,19 +66,17 @@ Params:
 name  | type | description
 --|--|--
 name_|string|Token name
-symbol|string|Token symbol
-defaultOperators|address[]| default operators. it's a part of erc777 token initialize
-interval|uint256| interval in seconds
-duration|uint256| how much interval will be tokens stake
-multiplier|uint256| multiplier(in percent and mul by 1e2. means 0.05% is 5; 1% is 100; 100% is 10000). used for disburse via DividendsGroupContract
-token|address| token address that will be acceptible for staking
-whitelist|address[]|token address that wil be acceptible for dividends and disbursing for users
+symbol_|string|Token symbol
+defaultOperators_|address[]| default operators. it's a part of erc777 token initialize
+interval_|uint256| interval in seconds
+duration_|uint256| how much interval will be tokens stake
+multiplier_|uint256| multiplier(in percents and mul by 1e2. means 0.05% is 5; 1% is 100; 100% is 10000). used for disburse via DividendsGroupContract
+token_|address| token address that will be applicable for staking
+whitelist_|address[]|token address that will be applicable for dividends and disbursing for users
 
-#### getInterval
+#### getInterval   
 Params:   
-name  | type | description
---|--|--
-<td colspan=3>no params</td>   
+<table><thead><th>name</th><th>type</th><th>description</th></thead><tbody><tr><td colspan=3 align=center>no params</td></tr></tbody></table>
 
 Returns:   
 name  | type | description
@@ -87,9 +85,7 @@ interval|uint256| interval
 
 #### getMultiplier   
 Params:   
-name  | type | description
---|--|--
-<td colspan=3>no params</td>   
+<table><thead><th>name</th><th>type</th><th>description</th></thead><tbody><tr><td colspan=3 align=center>no params</td></tr></tbody></table>  
 
 Returns:   
 name  | type | description
@@ -97,7 +93,7 @@ name  | type | description
 multiplier|uint256| multiplier
 
 #### getSharesSum   
-calculatig sum of shares current intreval    
+calculatig sum of shares current interval    
 Params:   
 name  | type | description
 --|--|--
@@ -111,16 +107,12 @@ shares|uint256| sum shares
 #### claim   
 claiming dividends   
 Params:   
-name  | type | description
---|--|--
-<td colspan=3>no params</td>   
+<table><thead><th>name</th><th>type</th><th>description</th></thead><tbody><tr><td colspan=3 align=center>no params</td></tr></tbody></table>   
 
 #### redeem   
 redeem dividends    
 Params:   
-name  | type | description
---|--|--
-<td colspan=3>no params</td>   
+<table><thead><th>name</th><th>type</th><th>description</th></thead><tbody><tr><td colspan=3 align=center>no params</td></tr></tbody></table>  
 
 #### disburse    
 one of the way to disburse dividends tokens     
