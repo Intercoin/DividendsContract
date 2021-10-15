@@ -9,10 +9,10 @@ import "@openzeppelin/contracts-upgradeable/token/ERC777/IERC777RecipientUpgrade
 import "./erc777/ERC777LayerUpgradeable.sol";
 import "./lib/SumLibrary.sol";
 import "./interfaces/IDividendsContract.sol";
-import "./Minimums.sol";
+import "./MinimumsBase.sol";
 
  
-contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777RecipientUpgradeable, IDividendsContract, Minimums {
+contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC777RecipientUpgradeable, IDividendsContract, MinimumsBase {
     
 	using SafeMathUpgradeable for uint256;
 	using EnumerableSetUpgradeable for EnumerableSetUpgradeable.AddressSet;
@@ -72,7 +72,7 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         override
     {
         // TODO 0: move getInterval to lib.  or need to initialize __Minimums_init before __DividendsContract_init
-        __Minimums_init(interval_);
+        __MinimumsBase_init(interval_);
         __DividendsContract_init(name_, symbol_, defaultOperators_, interval_, duration_, multiplier_, token_, whitelist_);
         
     }
@@ -172,7 +172,7 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         public
     {
         uint256 balance = balanceOf(_msgSender());
-        (uint256 retMinimum, uint256 retGradual) = getMinimum(_msgSender());
+        (uint256 retMinimum, uint256 retGradual) = _getMinimum(_msgSender());
         uint256 amount2Redeem = balance.sub(retMinimum>retGradual?retGradual:retMinimum);
         if (amount2Redeem>0) {
             
@@ -249,7 +249,7 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
             
             if (from == address(0)) {
                 // function minimumsAdd(address addr,uint256 amount, uint256 timestamp,bool gradual)
-                minimumsAdd(to, amount.mul(lockupShares).div(10000), getIndexInterval(block.timestamp).add(interval),false);
+                _minimumsAdd(to, amount.mul(lockupShares).div(10000), getIndexInterval(block.timestamp).add(interval),false);
             }
     
         } else {
