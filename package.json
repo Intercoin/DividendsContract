@@ -17,11 +17,12 @@
   },
   "homepage": "https://github.com/Intercoin/DividendsContract#readme",
   "dependencies": {
-    
-    "@openzeppelin/test-helpers": "^0.5.10",
     "@openzeppelin/contracts": "^4.1.0",
     "@openzeppelin/contracts-upgradeable": "^4.1.0",
-    "@truffle/hdwallet-provider": "1.0.40",
+    "@openzeppelin/test-helpers": "^0.5.10",
+    "@truffle/hdwallet-provider": "^1.0.37",
+    "@uniswap/v2-core": "^1.0.1",
+    "@uniswap/v2-periphery": "^1.1.0-beta.0",
     "bignumber.js": "^9.0.1",
     "dotenv": "^8.2.0",
     "solidity-linked-list": "^5.0.0",

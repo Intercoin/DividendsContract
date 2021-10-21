@@ -27,9 +27,9 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
 	// token that contract will be exchange to stakes
     address token;
     
-    uint256 duration;
-    uint256 interval;
-    uint256 multiplier;
+    uint256 public duration;
+    uint256 public interval;
+    uint256 public multiplier;
     
     // percent of shares to lockup 
     uint256 lockupShares;
@@ -53,7 +53,7 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
     mapping(address => SumLibrary.Data) sumDividendsAndActiveShares;
 
     uint256 lastDisbursedIndex;
-    
+
 
     EnumerableSetUpgradeable.AddressSet whitelist;
     
@@ -68,11 +68,11 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         address[] memory whitelist_
     ) 
         public 
+        virtual
         initializer
         override
     {
-        // TODO 0: move getInterval to lib.  or need to initialize __Minimums_init before __DividendsContract_init
-        __MinimumsBase_init(interval_);
+        
         __DividendsContract_init(name_, symbol_, defaultOperators_, interval_, duration_, multiplier_, token_, whitelist_);
         
     }
@@ -100,13 +100,7 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
     //     // return total.stakes[intervalIndex].shares;
     // }
 
-    
-    
-    
-    
-    
-    
-    
+   
     // claim dividends
     function claim()
         public
@@ -171,9 +165,13 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
     function redeem()
         public
     {
+        
         uint256 balance = balanceOf(_msgSender());
-        (uint256 retMinimum, uint256 retGradual) = _getMinimum(_msgSender());
-        uint256 amount2Redeem = balance.sub(retMinimum>retGradual?retGradual:retMinimum);
+        (uint256 retMinimum, uint256 retGradual, uint256 retGradualSubstriction) = _getMinimum(_msgSender());
+        retGradual = retGradual > retGradualSubstriction ? retGradual.sub(retGradualSubstriction) : 0;
+        
+        uint256 retMax = retMinimum>retGradual?retMinimum:retGradual;
+        uint256 amount2Redeem = balance.sub(retMax);
         if (amount2Redeem>0) {
             
             IERC20Upgradeable(token).transfer(_msgSender(), amount2Redeem);
@@ -201,6 +199,13 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         internal
         initializer 
     {
+        
+        if (duration_ == 0) { duration_ = 52; }
+        if (interval_ == 0) { interval_ = 604800; }
+        
+        // TODO 0: move getInterval to lib.  or need to initialize __Minimums_init before __DividendsContract_init
+        __MinimumsBase_init(interval_);
+        
         __Ownable_init();
         
         __ERC777LayerUpgradeable_init(name_, symbol_, defaultOperators_);
@@ -211,9 +216,6 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         duration = duration_;
         multiplier = multiplier_;
         token = token_;
-        
-        if (duration == 0) { duration = 52; }
-        if (interval == 0) { interval = 604800; }
         
         stakeMultiplier = 1_000_000_000;
         
@@ -243,17 +245,11 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         
         
         if (from == address(0) || to == address(0)) {
-            
-            
+
             super._move(operator, from, to, amount, userData, operatorData);
-            
-            if (from == address(0)) {
-                // function minimumsAdd(address addr,uint256 amount, uint256 timestamp,bool gradual)
-                _minimumsAdd(to, amount.mul(lockupShares).div(10000), getIndexInterval(block.timestamp).add(interval),false);
-            }
     
         } else {
-
+            
             /**
              * 
              * @param from sender address
@@ -262,14 +258,24 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
              * @param reduceTimeDiff if true then all timestamp which more then minTimeDiff will reduce to minTimeDiff
              * @param minTimeDiff minimum lockup period time or if reduceTimeDiff==false it is time to left tokens
              */
-            minimumsTransfer(from, to, amount);
+             
+            uint256 balance = balanceOf(_msgSender());
+            (uint256 retMinimum, uint256 retGradual, uint256 retGradualSubstriction) = _getMinimum(_msgSender());
+            retGradual = retGradual > retGradualSubstriction ? retGradual.sub(retGradualSubstriction) : 0;
             
-            super._move(operator, from, to, amount, userData, operatorData);
+            uint256 retMax = retMinimum>retGradual?retMinimum:retGradual;
+            uint256 leftAmount = balance.sub(amount);
+            if (retMax > leftAmount) {
+                minimumsTransfer(from, to, retMax.sub(leftAmount));
+            }
+            
             //revert('TBD: transfer was temporary disabled');
         }
-            
+        
+        super._move(operator, from, to, amount, userData, operatorData);
     }
-
+  
+    
     function _mint(
         address account,
         uint256 amount,
@@ -278,6 +284,9 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
     ) internal override {
         super._mint(account, amount, userData, operatorData);
         
+        // function minimumsAdd(address addr,uint256 amount, uint256 timestamp,bool gradual)
+        _minimumsAdd(account, amount.mul(lockupShares).div(10000), getIndexInterval(block.timestamp).add(interval.mul(duration)), true);
+                
         // define intervals
         uint256 intervalCurrent = getIndexInterval(block.timestamp);
         (users[account].balances).add(intervalCurrent, balanceOf(account));
@@ -376,6 +385,7 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
         bytes calldata /*operatorData*/
     ) 
         override
+        virtual
         external
     {
         // a1 = operator;

@@ -100,4 +100,5 @@ name  | type | description
 --|--|--
 
 ## Example to use
-TBD
+
+Contract are used for disburse tokens for investors in Di
