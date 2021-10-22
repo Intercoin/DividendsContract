@@ -1,4 +1,4 @@
-# DividendsContract
+# DividendsContractUNI
 
 # Latest contract instances in test networks
 
@@ -54,9 +54,14 @@ Once installed will be use methods:
 		<td>called externally. used to disburse dividends tokens in current interval</td>
 	</tr>
     <tr>
-		<td><a href="#stake">stake</a></td>
+		<td><a href="#addliquidityandstakecoin">addLiquidityAndStakeCoin</a></td>
 		<td>anyone</td>
-		<td>stake tokens</td>
+		<td>stake coin(eth)</td>
+	</tr>
+    <tr>
+		<td><a href="#addliquidityandstaketoken">addLiquidityAndStakeToken</a></td>
+		<td>anyone</td>
+		<td>send tokens to add liquidity</td>
 	</tr>
 </tbody>
 </table>
@@ -76,7 +81,7 @@ defaultOperators_|address[]| default operators. it's a part of erc777 token init
 interval_|uint256| interval in seconds
 duration_|uint256| how much interval will be tokens stake
 multiplier_|uint256| multiplier(in percents and mul by 1e2. means 0.05% is 5; 1% is 100; 100% is 10000). used for disburse via DividendsGroupContract
-token_|address| token address that will be applicable for staking
+token_|address| second token from pair <a href="https://etherscan.io/address/0x6ef5febbd2a56fab23f18a69d3fb9f4e2a70440b">ITR</a> - this token
 whitelist_|address[]|token address that will be applicable for dividends and disbursing for users
 
 #### getInterval   
@@ -127,15 +132,18 @@ name  | type | description
 token_|address| dividends token's address.  need to be approve before
 amount_|uint256| dividends token's amount approved to disburse
 
-#### stake    
-stake tokens pointed in param `token_` method `initialize`    
-if token contract is ERC20 then need to approve before call method. it will be transfer all alowance token.     
-if token contract is ERC777 then tokens can be send directly to contract    
+#### addLiquidityAndStakeCoin    
+one of the way to adding ETH to liquidity pool
+Params:   
+<table><thead><th>name</th><th>type</th><th>description</th></thead><tbody><tr><td colspan=3 align=center>no params</td></tr></tbody></table>  
+
+#### addLiquidityAndStakeToken    
+one of the way to adding tokens to liquidity pool    
 Params:   
 name  | type | description
 --|--|--
-amount|uint256| token's amount allowed to stake
-
+token_|address| tokens. need to be approve before
+amount_|uint256| token's amount allowed to disburse
 
 ## Example to use
 TBD

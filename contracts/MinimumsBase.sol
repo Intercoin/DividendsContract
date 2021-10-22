@@ -99,7 +99,6 @@ locked2 = 40/(100-40)*(100-70) = 20
         
         _minimumsAddLow(addr, timestampFrom, timestamp, amount, gradual);
     
-        
         return true;
         
     }

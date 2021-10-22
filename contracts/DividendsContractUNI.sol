@@ -46,7 +46,7 @@ contract DividendsContractUNI is DividendsContract {
         
         address pair = __DividendsContractUNI_init(token_);
         
-        __DividendsContract_init(name_, symbol_, defaultOperators_, interval_, duration_, multiplier_, pair, whitelist_);
+        __DividendsBase_init(name_, symbol_, defaultOperators_, interval_, duration_, multiplier_, pair, whitelist_);
         
         
     }
@@ -74,12 +74,12 @@ contract DividendsContractUNI is DividendsContract {
     receive() external payable {
     }
     function tokensReceived(
-        address operator,
+        address /*operator*/,
         address from,
-        address to,
+        address /*to*/,
         uint256 amount,
-        bytes calldata userData,
-        bytes calldata operatorData
+        bytes calldata /*userData*/,
+        bytes calldata /*operatorData*/
     ) 
         override
         
@@ -95,7 +95,7 @@ contract DividendsContractUNI is DividendsContract {
         } else {
             if (msg.sender == token) {
             
-                stake(from, amount);
+                _stake(from, amount);
             
             } else if (whitelist.contains(msg.sender)) {
     
@@ -180,7 +180,7 @@ contract DividendsContractUNI is DividendsContract {
             block.timestamp
         );
         require (lpTokens > 0, "lpTokens need > 0" );
-        stake(from, lpTokens);
+        _stake(from, lpTokens);
         
     }
     

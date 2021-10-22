@@ -31,7 +31,7 @@ abstract contract Minimums is MinimumsBase,OwnableUpgradeable {
     ) 
         public 
         view
-        returns (uint256, uint256, uint256)
+        returns (uint256)
     {
         return _getMinimum(addr);
     }

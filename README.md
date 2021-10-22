@@ -3,6 +3,7 @@ Operates pools for distributing dividends to reward investors staking ERC20 toke
 
 ## Docs contracts
 - [DividendsContract](/docs/md/DividendsContract.md) ([abi](/docs/abi/DividendsContract.json))
+- [DividendsContractUNI](/docs/md/DividendsContractUNI.md) ([abi](/docs/abi/DividendsContractUNI.json))
 - [DividendsFactory](/docs/md/DividendsFactory.md) ([abi](/docs/abi/DividendsFactory.json))
 - [DividendsGroupContract](/docs/md/DividendsGroupContract.md) ([abi](/docs/abi/DividendsGroupContract.json))
 - [DividendsGroupFactory](/docs/md/DividendsGroupFactory.md) ([abi](/docs/abi/DividendsGroupFactory.json))
