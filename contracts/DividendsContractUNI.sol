@@ -51,7 +51,6 @@ contract DividendsContractUNI is DividendsContract {
         
     }
     
-    
     function addLiquidityAndStakeCoin() public payable {
         require(wethMode == true, "Pair need to contain WETH token");
         
@@ -61,6 +60,7 @@ contract DividendsContractUNI is DividendsContract {
         addLiquidityAndStake(_msgSender(), WETH, amountETH);
         
     }
+    
     function addLiquidityAndStakeToken(address token_, uint256 amount_) public {
         
         require(token_ == token1, "Pair need to contain token");

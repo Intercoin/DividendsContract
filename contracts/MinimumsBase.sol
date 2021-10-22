@@ -24,12 +24,28 @@ abstract contract MinimumsBase is Initializable, ContextUpgradeable {
     }
     
     struct Minimum {
-        uint256 timestampStart;
-        uint256 timestampEnd;
-        uint256 amount;
-        uint256 amountWithdrawn;
-        bool gradual;
+     //   uint256 timestampStart; //ts start no need 
+        //uint256 timestampEnd;   //ts end
+        uint256 speedGradualUnlock;    
+        uint256 amountGradualWithdrawn;
+        //uint256 amountGradual;
+        uint256 amountNoneGradual;
+        //bool gradual;
     }
+    
+    /*
+0-100 200 tokens
+speed 2
+
+40-100 40 tokens
+speed 0.666
+    
+timex = 70    
+locked1 = 200/(100-0)*(100-70) = 60
+locked2 = 40/(100-40)*(100-70) = 20
+
+    
+    */
     struct UserStruct {
         EnumerableSetUpgradeable.UintSet minimumsIndexes;
         mapping(uint256 => Minimum) minimums;
@@ -78,14 +94,12 @@ abstract contract MinimumsBase is Initializable, ContextUpgradeable {
         require(timestamp > getIndexInterval(block.timestamp), 'timestamp is less then current block.timestamp');
         
         _minimumsClear(addr, false);
-        require(users[addr].minimumsIndexes.add(timestamp), 'minimum already exist');
         
-        //users[addr].data[timestamp] = minimum;
-        users[addr].minimums[timestamp].timestampStart = getIndexInterval(block.timestamp);
-        users[addr].minimums[timestamp].timestampEnd = timestamp;
-        users[addr].minimums[timestamp].amount = amount;
-        users[addr].minimums[timestamp].amountWithdrawn = 0;
-        users[addr].minimums[timestamp].gradual = gradual;
+        uint256 timestampFrom = getIndexInterval(block.timestamp);    
+        
+        _minimumsAddLow(addr, timestampFrom, timestamp, amount, gradual);
+    
+        
         return true;
         
     }
@@ -139,40 +153,22 @@ abstract contract MinimumsBase is Initializable, ContextUpgradeable {
     ) 
         internal 
         view
-        returns (uint256 retMinimum,uint256 retGradual, uint256 retGradualSubstriction) 
+        returns (uint256 amountLocked) 
     {
-        retMinimum = 0;
-        retGradual = 0;
-        retGradualSubstriction = 0;
         
-        uint256 amount = 0;
-        uint256 mapIndex = 0;
-        
+        uint256 mapIndex;
+        uint256 tmp;
         for (uint256 i=0; i<users[addr].minimumsIndexes.length(); i++) {
             mapIndex = users[addr].minimumsIndexes.at(i);
             
-            if (block.timestamp <= users[addr].minimums[mapIndex].timestampEnd) {
-                amount = users[addr].minimums[mapIndex].amount;
+            if (block.timestamp <= mapIndex) { // block.timestamp<timestampEnd
+                tmp = users[addr].minimums[mapIndex].speedGradualUnlock.mul(mapIndex.sub(block.timestamp));
                 
-                if (users[addr].minimums[mapIndex].gradual == true) {
-                    
-                        amount = amount.div(
-                                        users[addr].minimums[mapIndex].timestampEnd.sub(users[addr].minimums[mapIndex].timestampStart)
-                                        ).
-                                     mul(
-                                        users[addr].minimums[mapIndex].timestampEnd.sub(block.timestamp)
-                                        );
-
-                    //retGradual = (amount > retGradual) ? amount : retGradual;
-                    retGradual = retGradual.add(amount);
-                    retGradualSubstriction = retGradualSubstriction.add(users[addr].minimums[mapIndex].amountWithdrawn);
-                } else {
-                    retMinimum = retMinimum.add(amount);
-                }
-                
+                amountLocked = amountLocked.
+                                    add(tmp < users[addr].minimums[mapIndex].amountGradualWithdrawn ? 0 : tmp.sub(users[addr].minimums[mapIndex].amountGradualWithdrawn)).
+                                    add(users[addr].minimums[mapIndex].amountNoneGradual);
             }
         }
-        
     }
     
     /**
@@ -195,7 +191,7 @@ abstract contract MinimumsBase is Initializable, ContextUpgradeable {
                 mapIndex = users[addr].minimumsIndexes.at(i-1);
                 if (
                     (deleteAnyway == true) ||
-                    (getIndexInterval(block.timestamp) > users[addr].minimums[mapIndex].timestampEnd)
+                    (getIndexInterval(block.timestamp) > mapIndex)
                 ) {
                     delete users[addr].minimums[mapIndex];
                     users[addr].minimumsIndexes.remove(mapIndex);
@@ -206,35 +202,36 @@ abstract contract MinimumsBase is Initializable, ContextUpgradeable {
         return true;
     }
 
+
+        
     /**
      * added minimum if not exist by timestamp else append it
-     * @param receiver destination address
+     * @param addr destination address
      * @param timestampStart if empty get current interval or currente time
      * @param timestampEnd "until time"
-     * @param value amount
+     * @param amount amount
      * @param gradual if true then lockup are gradually
      */
-    function _appendMinimum(
-        address receiver,
+    //function _appendMinimum(
+    function _minimumsAddLow(
+        address addr,
         uint256 timestampStart, 
         uint256 timestampEnd, 
-        uint256 value, 
-        uint256 valueWithdrawn, 
+        uint256 amount, 
         bool gradual
     )
-        internal
+        private
     {
-
-        if (users[receiver].minimumsIndexes.add(timestampEnd) == true) {
-            users[receiver].minimums[timestampEnd].timestampStart = timestampStart == 0 ? timestampStart : getIndexInterval(block.timestamp);
-            users[receiver].minimums[timestampEnd].timestampEnd = timestampEnd;
-            users[receiver].minimums[timestampEnd].amount = value;
-            users[receiver].minimums[timestampEnd].amountWithdrawn = valueWithdrawn;
-            users[receiver].minimums[timestampEnd].gradual = gradual; 
+        users[addr].minimumsIndexes.add(timestampEnd);
+        if (gradual == true) {
+            // gradual
+            users[addr].minimums[timestampEnd].speedGradualUnlock = users[addr].minimums[timestampEnd].speedGradualUnlock.add(
+                (amount).div(timestampEnd.sub(timestampStart))
+            );
+            //users[addr].minimums[timestamp].amountGradual = users[addr].minimums[timestamp].amountGradual.add(amount);
         } else {
-            //'minimum already exist' 
-            // just summ exist and new value
-            users[receiver].minimums[timestampEnd].amount = users[receiver].minimums[timestampEnd].amount.add(value);
+            // none-gradual
+            users[addr].minimums[timestampEnd].amountNoneGradual = users[addr].minimums[timestampEnd].amountNoneGradual.add(amount);
         }
     }
     
@@ -247,28 +244,43 @@ abstract contract MinimumsBase is Initializable, ContextUpgradeable {
     function _reduceMinimum(
         address addr,
         uint256 timestampEnd, 
-        uint256 value
+        uint256 value,
+        bool gradual
     )
         internal
     {
         
+        // /revert("TBD");
+        
         if (users[addr].minimumsIndexes.contains(timestampEnd) == true) {
             
-            if (users[addr].minimums[timestampEnd].gradual == true) {
-                if (value < users[addr].minimums[timestampEnd].amount.sub(users[addr].minimums[timestampEnd].amountWithdrawn)) {
-                    users[addr].minimums[timestampEnd].amountWithdrawn = users[addr].minimums[timestampEnd].amountWithdrawn.add(value);
-                } else {
-                    delete users[addr].minimums[timestampEnd];
-                    users[addr].minimumsIndexes.remove(timestampEnd);
+            if (gradual == true) {
+                
+                users[addr].minimums[timestampEnd].amountGradualWithdrawn = users[addr].minimums[timestampEnd].amountGradualWithdrawn.add(value);
+                
+                uint256 left = (users[addr].minimums[timestampEnd].speedGradualUnlock).mul(timestampEnd.sub(block.timestamp));
+                if (left <= users[addr].minimums[timestampEnd].amountGradualWithdrawn) {
+                    users[addr].minimums[timestampEnd].speedGradualUnlock = 0;
+                    // delete users[addr].minimums[timestampEnd];
+                    // users[addr].minimumsIndexes.remove(timestampEnd);
                 }
             } else {
-                if (value < users[addr].minimums[timestampEnd].amount) {
-                    users[addr].minimums[timestampEnd].amount = users[addr].minimums[timestampEnd].amount.sub(value);
+                if (users[addr].minimums[timestampEnd].amountNoneGradual > value) {
+                    users[addr].minimums[timestampEnd].amountNoneGradual = users[addr].minimums[timestampEnd].amountNoneGradual.sub(value);
                 } else {
-                    delete users[addr].minimums[timestampEnd];
-                    users[addr].minimumsIndexes.remove(timestampEnd);
+                    users[addr].minimums[timestampEnd].amountNoneGradual = 0;
+                    // delete users[addr].minimums[timestampEnd];
+                    // users[addr].minimumsIndexes.remove(timestampEnd);
                 }
                     
+            }
+            
+            if (
+                users[addr].minimums[timestampEnd].speedGradualUnlock == 0 &&
+                users[addr].minimums[timestampEnd].amountNoneGradual == 0
+            ) {
+                delete users[addr].minimums[timestampEnd];
+                users[addr].minimumsIndexes.remove(timestampEnd);
             }
                 
                 
@@ -303,100 +315,69 @@ abstract contract MinimumsBase is Initializable, ContextUpgradeable {
             _dataList = sortAsc(_dataList);
             
             uint256 iValue;
-            
+            uint256 tmpValue;
         
             for (uint256 i=0; i<len; i++) {
                 
-                if (block.timestamp <= users[from].minimums[_dataList[i]].timestampEnd) {
-                    if (users[from].minimums[_dataList[i]].gradual == false) {
-    
-                        if (value >= users[from].minimums[_dataList[i]].amount) {
-                            //iValue = users[from].data[_dataList[i]].minimum;
-                            iValue = users[from].minimums[_dataList[i]].amount;
-                            value = value.sub(iValue);
-                        } else {
-                            iValue = value;
-                            value = 0;
-                        }
-    
-                        //recieverTimeLeft = users[from].minimums[_dataList[i]].timestampEnd.sub(block.timestamp);
-                        // put to reciver
-                        _appendMinimum(
-                            to,
-                            0,
-                            users[from].minimums[_dataList[i]].timestampEnd,
-                            iValue,
-                            0,
-                            users[from].minimums[_dataList[i]].gradual // false
-                        );
-                        
-                        // remove from sender
-                        _reduceMinimum(
-                            from,
-                            users[from].minimums[_dataList[i]].timestampEnd,
-                            iValue
-                        );
-                          
-                        if (value == 0) {
-                            break;
-                        }
+                if (block.timestamp <= _dataList[i]) {
                     
-                    } else if (users[from].minimums[_dataList[i]].gradual == true) {
-                        // make correct calculate after split and moving gradual minimums:
-                        // -- new minimum should be with the range [current;to] but not gradual
-                        // -- old minimum should remember how it was moved from this minimum, and should be left in the same range [from;to]
-                        // ----- like range [from;to]; total locked 100 gradually, but moved to some1 33. and in next we calculate in formula 
-                        // -----  (100/(timestampEnd-timestampStart)*(timestampEnd-block.timestamp)) - 33
-                        // it make possible to save speed of old gradual minimums
-                        
-                        iValue = users[from].minimums[_dataList[i]].amount.sub(users[from].minimums[_dataList[i]].amountWithdrawn);
-                        if (value >= iValue) {
-                            //iValue = users[from].data[_dataList[i]].minimum;
-                            //iValue = users[from].minimums[_dataList[i]].amount;
-                            // iValue = iValue
-                            value = value.sub(iValue);
-                        } else {
-                            iValue = value;
-                            value = 0;
-                        }
-/*
-0-100 200 tokens
-timex = 60
-200/(100-0)*(100-60) = 80
-
-total 200
-withdrawn 80
-left 120
-
-0-100 200
-
-withdrawn 120
-
-
-*/    
-                        //recieverTimeLeft = users[from].minimums[_dataList[i]].timestampEnd.sub(block.timestamp);
-                        // put to reciver
-                        _appendMinimum(
-                            to,
-                            users[from].minimums[_dataList[i]].timestampStart,
-                            users[from].minimums[_dataList[i]].timestampEnd,
-                            iValue,
-                            
-                            users[from].minimums[_dataList[i]].gradual // true
-                        );
-                        
-                        // remove from sender
-                        _reduceMinimum(
-                            from,
-                            users[from].minimums[_dataList[i]].timestampEnd,
-                            iValue
-                        );
-                          
-                        if (value == 0) {
-                            break;
-                        }
-                        
+                    // try move none-gradual
+                    if (value >= users[from].minimums[_dataList[i]].amountNoneGradual) {
+                        iValue = users[from].minimums[_dataList[i]].amountNoneGradual;
+                        value = value.sub(iValue);
+                    } else {
+                        iValue = value;
+                        value = 0;
                     }
+                    
+                    // remove from sender
+                    _reduceMinimum(
+                        from,
+                        _dataList[i],//timestampEnd,
+                        iValue,
+                        false
+                    );
+                    _minimumsAddLow(to, block.timestamp, _dataList[i], iValue, false);
+                    
+                    if (value == 0) {
+                        break;
+                    }
+                    
+                    
+                    // try move gradual
+                    
+                    // amount left in current minimums
+                    tmpValue = users[from].minimums[_dataList[i]].speedGradualUnlock.mul(
+                        _dataList[i].sub(block.timestamp)
+                    );
+                        
+                        
+                    if (value >= tmpValue) {
+                        iValue = tmpValue;
+                        value = value.sub(tmpValue);
+
+                    } else {
+                        iValue = value;
+                        value = 0;
+                    }
+                    // remove from sender
+                    _reduceMinimum(
+                        from,
+                        _dataList[i],//timestampEnd,
+                        iValue,
+                        true
+                    );
+                    // uint256 speed = iValue.div(
+                        //     users[from].minimums[_dataList[i]].timestampEnd.sub(block.timestamp);
+                        // );
+                    _minimumsAddLow(to, block.timestamp, _dataList[i], iValue, true);
+                    
+                    if (value == 0) {
+                        break;
+                    }
+                    
+
+
                 } // if (block.timestamp <= users[from].minimums[_dataList[i]].timestampEnd) {
             } // end for
             

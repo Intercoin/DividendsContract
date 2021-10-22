@@ -167,11 +167,9 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
     {
         
         uint256 balance = balanceOf(_msgSender());
-        (uint256 retMinimum, uint256 retGradual, uint256 retGradualSubstriction) = _getMinimum(_msgSender());
-        retGradual = retGradual > retGradualSubstriction ? retGradual.sub(retGradualSubstriction) : 0;
+        uint256 locked = _getMinimum(_msgSender());
         
-        uint256 retMax = retMinimum>retGradual?retMinimum:retGradual;
-        uint256 amount2Redeem = balance.sub(retMax);
+        uint256 amount2Redeem = balance.sub(locked);
         if (amount2Redeem>0) {
             
             IERC20Upgradeable(token).transfer(_msgSender(), amount2Redeem);
@@ -250,23 +248,21 @@ contract DividendsContract is OwnableUpgradeable, ERC777LayerUpgradeable, IERC77
     
         } else {
             
-            /**
-             * 
-             * @param from sender address
-             * @param to destination address
-             * @param value amount
-             * @param reduceTimeDiff if true then all timestamp which more then minTimeDiff will reduce to minTimeDiff
-             * @param minTimeDiff minimum lockup period time or if reduceTimeDiff==false it is time to left tokens
-             */
-             
+            // balance = 100             
+            // locked 80
+            // amount = 70
+            // leftAmount = balance - amount = 100-70 = 30;
+            // if (locked > leftAmount) {
+            //     transfer is =  locked-leftAmount = 80-30 = 50
+            // }
+            // means that we use use unlocked first (20) and then that left (50). it's 50 we transfer as minimums to other
+
             uint256 balance = balanceOf(_msgSender());
-            (uint256 retMinimum, uint256 retGradual, uint256 retGradualSubstriction) = _getMinimum(_msgSender());
-            retGradual = retGradual > retGradualSubstriction ? retGradual.sub(retGradualSubstriction) : 0;
+            uint256 locked = _getMinimum(_msgSender());
             
-            uint256 retMax = retMinimum>retGradual?retMinimum:retGradual;
             uint256 leftAmount = balance.sub(amount);
-            if (retMax > leftAmount) {
-                minimumsTransfer(from, to, retMax.sub(leftAmount));
+            if (locked > leftAmount) {
+                minimumsTransfer(from, to, locked.sub(leftAmount));
             }
             
             //revert('TBD: transfer was temporary disabled');
