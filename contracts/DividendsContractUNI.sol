@@ -20,7 +20,7 @@ contract DividendsContractUNI is DividendsContract {
     address internal WETH;
     address public token0;
     address public token1;
-    bool wethMode;
+    bool public wethMode;
     
     /**
      * init internal

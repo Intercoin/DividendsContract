@@ -255,6 +255,7 @@ abstract contract DividendsBase is OwnableUpgradeable, ERC777LayerUpgradeable, I
         super._move(operator, from, to, amount, userData, operatorData);
     }
   
+    //function syncBaskets(address from, address account, uint256 amount)
     
     function _mint(
         address account,
