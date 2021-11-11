@@ -136,6 +136,23 @@ contract DividendsGroupContract is IDividendsGroupContract, OwnableUpgradeable, 
         }
     }
     
+    function getSharesSum(
+    ) 
+        public 
+        view 
+        returns(uint256 sumTotal) 
+    {
+        uint256 len = dividendsContracts.length();
+        uint256 indexInterval = getIndexInterval(block.timestamp);
+        for(uint256 i = 0; i< len; i++) {
+            sumTotal = sumTotal.add(
+                    (IDividendsContract(dividendsContracts.at(i)).getMultiplier())
+                        .mul(
+                            IDividendsContract(dividendsContracts.at(i)).getSharesSum(indexInterval)
+                        )
+                );
+        }
+    }
     //---------------------------------------------------------------------------------
     // internal  section
     //---------------------------------------------------------------------------------

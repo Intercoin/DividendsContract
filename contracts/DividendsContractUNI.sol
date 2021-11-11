@@ -7,6 +7,7 @@ import '@uniswap/v2-periphery/contracts/interfaces/IWETH.sol';
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol';
 import '@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol';
 import '@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol';
+import '@uniswap/lib/contracts/libraries/TransferHelper.sol';
 
 contract DividendsContractUNI is DividendsContract {
     using SafeMathUpgradeable for uint256;
@@ -20,6 +21,7 @@ contract DividendsContractUNI is DividendsContract {
     address internal WETH;
     address public token0;
     address public token1;
+    address public uniswapPair;
     bool public wethMode;
     
     /**
@@ -44,9 +46,9 @@ contract DividendsContractUNI is DividendsContract {
         
         //LPTokens( IUniswapV2Factory.getPair)
         
-        address pair = __DividendsContractUNI_init(token_);
+        uniswapPair = __DividendsContractUNI_init(token_);
         
-        __DividendsBase_init(name_, symbol_, defaultOperators_, interval_, duration_, multiplier_, pair, whitelist_);
+        __DividendsBase_init(name_, symbol_, defaultOperators_, interval_, duration_, multiplier_, uniswapPair, whitelist_);
         
         
     }
@@ -71,8 +73,48 @@ contract DividendsContractUNI is DividendsContract {
         addLiquidityAndStake(_msgSender(), token_, amount_);
         
     }
+    
+    
+    function redeemAndRemoveLiquidity() public {
+        
+        uint256 amount2Redeem = getRedeemAmount(_msgSender());
+            
+        //IERC20Upgradeable(token).transfer(_msgSender(), amount2Redeem);
+        IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(uniswapRouter);
+        
+        bool success = IERC20Upgradeable(uniswapPair).approve(uniswapRouter, amount2Redeem);
+        require(success == true, "");
+        
+        (uint amountA, uint amountB) = _uniswapV2Router.removeLiquidity(
+            token0,//address tokenA,
+            token1,//address tokenB,
+            amount2Redeem,//uint liquidity,
+            0,//uint amountAMin,
+            0,//uint amountBMin,
+            address(this),//address to,
+            block.timestamp//uint deadline
+        );
+        
+        IERC20Upgradeable(token0).transfer(_msgSender(), amountA);
+        if (wethMode) {
+            IWETH(token1).withdraw(amountB);
+            TransferHelper.safeTransferETH(_msgSender(), amountB);
+            //IERC20Upgradeable(token1).transfer(_msgSender(), amountB);
+        } else {
+            IERC20Upgradeable(token1).transfer(_msgSender(), amountB);
+        }
+        
+        
+        emit Redeemed(_msgSender(), amount2Redeem);
+        _burn(_msgSender(), amount2Redeem, "", "");
+        //(users[_msgSender()].balances).add(balanceOf(_msgSender()));
+    
+    
+    }
+    
     receive() external payable {
     }
+    
     function tokensReceived(
         address /*operator*/,
         address from,

@@ -31,6 +31,12 @@ abstract contract DividendsBase is OwnableUpgradeable, ERC777LayerUpgradeable, I
     uint256 public interval;
     uint256 public multiplier;
     
+    struct HistoryStaked {
+        uint256 time;
+        uint256 amount;
+    }
+    mapping(address => HistoryStaked[]) historyStaked;
+    
     // percent of shares to lockup 
     uint256 lockupShares;
     // index stored when contract deployed
@@ -147,21 +153,29 @@ abstract contract DividendsBase is OwnableUpgradeable, ERC777LayerUpgradeable, I
         public
     {
         
-        uint256 balance = balanceOf(_msgSender());
-        uint256 locked = _getMinimum(_msgSender());
-        
-        uint256 amount2Redeem = balance.sub(locked);
-        if (amount2Redeem > 0) {
+        uint256 amount2Redeem = getRedeemAmount(_msgSender());
             
-            IERC20Upgradeable(token).transfer(_msgSender(), amount2Redeem);
-            emit Redeemed(_msgSender(), amount2Redeem);
-            _burn(_msgSender(), amount2Redeem, "", "");
-            //(users[_msgSender()].balances).add(balanceOf(_msgSender()));
-        }
+        IERC20Upgradeable(token).transfer(_msgSender(), amount2Redeem);
+        emit Redeemed(_msgSender(), amount2Redeem);
+        _burn(_msgSender(), amount2Redeem, "", "");
+        //(users[_msgSender()].balances).add(balanceOf(_msgSender()));
+    
+    }
+    
+    function getStakingHistory() public view returns(HistoryStaked[] memory) {
+        return historyStaked[_msgSender()];
     }
     //---------------------------------------------------------------------------------
     // internal  section
     //---------------------------------------------------------------------------------
+    
+    function getRedeemAmount(address addr) internal view returns(uint256 amount2Redeem) {
+        uint256 balance = balanceOf(addr);
+        uint256 locked = _getMinimum(addr);
+        
+        require(balance > locked, "Nothing to redeem");
+        amount2Redeem = balance.sub(locked);
+    }
     
     /**
      * init internal
@@ -272,6 +286,9 @@ abstract contract DividendsBase is OwnableUpgradeable, ERC777LayerUpgradeable, I
         uint256 intervalCurrent = getIndexInterval(block.timestamp);
         (users[account].balances).add(intervalCurrent, balanceOf(account));
         totalShares.addSum(intervalCurrent, amount);
+        
+        HistoryStaked memory staked = HistoryStaked(intervalCurrent, amount); 
+        historyStaked[account].push(staked);
         
         emit Staked(account, amount);
     }
