@@ -14,8 +14,9 @@ import "./interfaces/ILiquidityMiningFactory.sol";
 import "./interfaces/ILiquidityMiningContract.sol";
 
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract LiquidityMiningRouter {
+contract LiquidityMiningRouter is Ownable {
     using SafeMath for uint256;
     address private constant deadAddress = 0x000000000000000000000000000000000000dEaD;
     
@@ -30,7 +31,11 @@ contract LiquidityMiningRouter {
     event Staked(address indexed account, uint256 amount);
     event Redeemed(address indexed account, uint256 amount);
     
-    address public  factory;
+    address public factory;
+    
+    uint256 public reserveClaimFraction;
+    uint256 public tradedClaimFraction;
+    uint256 internal constant MULTIPLIER = 100000;
     
     //address token0;
     //address token1;
@@ -44,9 +49,18 @@ contract LiquidityMiningRouter {
     // public section //////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////
     
-    constructor(address _factory) {
-        factory = _factory;
+    constructor(address factory_, uint256 tradedClaimFraction_, uint256 reserveClaimFraction_) {
+        
+        require(factory_ != address(0), "wrong factory address");
+        require(tradedClaimFraction_ <= MULTIPLIER, "wrong tradedClaimFraction");
+        require(reserveClaimFraction_ <= MULTIPLIER, "wrong reserveClaimFraction");
+        
+        factory = factory_; 
         //WETH = _WETH;
+        tradedClaimFraction = tradedClaimFraction_;
+        reserveClaimFraction = reserveClaimFraction_;
+        
+        
     }
     
     function addLiquidityAndStake(address tradedToken, address reserveToken) public payable {
@@ -100,10 +114,11 @@ contract LiquidityMiningRouter {
             block.timestamp//uint deadline
         );
         
-        IERC20(token0).transfer(msg.sender, amountA);
-        IERC20(token1).transfer(msg.sender, amountB);
         
-        emit Redeemed(msg.sender, amount2Redeem);
+        adjustedAmount(token0, amountA, tradedClaimFraction, owner(), _msgSender());
+        adjustedAmount(token1, amountB, reserveClaimFraction, owner(), _msgSender());
+        
+        emit Redeemed(_msgSender(), amount2Redeem);
         //_burn(_msgSender(), amount2Redeem, "", "");
         IERC20(sharesPair).transfer(deadAddress, amount2Redeem);
         
@@ -112,6 +127,19 @@ contract LiquidityMiningRouter {
     
     }
     
+    function adjustedAmount(address token_, uint256 amount_, uint256 fraction_, address fractionAddr_, address to_) internal {
+        
+        if (fraction_ == MULTIPLIER) {
+            IERC20(token_).transfer(fractionAddr_, amount_);
+        } else if (fraction_ == 0) {
+            IERC20(token_).transfer(to_, amount_);
+        } else {
+            uint256 adjusted = amount_.mul(fraction_).div(MULTIPLIER);
+            IERC20(token_).transfer(fractionAddr_, adjusted);
+            IERC20(token_).transfer(to_, amount_.sub(adjusted));
+        }
+        
+    }
     function getRedeemAmount(address lmpair_, address addr_) internal view returns(uint256 amount2Redeem) {
         
         uint256 balance = IERC20(lmpair_).balanceOf(addr_);
