@@ -8,10 +8,10 @@ import "./LiquidityMiningContract.sol";
 
 contract LiquidityMiningFactory is ILiquidityMiningFactory {
     uint256 lockupInterval = 24*60*60; // day in seconds
-    uint256 lockupDuration = 365; // duration of intervals = 365 intervals(days)
+    //uint256 lockupDuration = 365; // duration of intervals = 365 intervals(days)
         
     //create LiquidityMiningERC777 and become an owner
-    mapping(address => mapping(address => address)) public override getPair;
+    mapping(address => mapping(address => mapping(uint256 => address))) public override getPair;
     address[] public override allPairs;
     
     mapping(address => address) private pairCreator;
@@ -19,6 +19,7 @@ contract LiquidityMiningFactory is ILiquidityMiningFactory {
     struct Pair {
         address token0;
         address token1;
+        uint256 lockupDuration;
     }
     mapping(address => Pair) private pairTokens;
     //constructor() {}
@@ -32,24 +33,25 @@ contract LiquidityMiningFactory is ILiquidityMiningFactory {
         return allPairs.length;
     }
 
-    function createPair(address tokenA, address tokenB) external override returns (address pair) {
+    function createPair(address tokenA, address tokenB, uint256 lockupDuration) external override returns (address pair) {
         require(tokenA != tokenB, 'LiquidityMiningFactory: IDENTICAL_ADDRESSES');
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
         require(token0 != address(0), 'LiquidityMiningFactory: ZERO_ADDRESS');
-        require(getPair[token0][token1] == address(0), 'LiquidityMiningFactory: PAIR_EXISTS'); // single check is sufficient
+        require(getPair[token0][token1][lockupDuration] == address(0), 'LiquidityMiningFactory: PAIR_EXISTS'); // single check is sufficient
         bytes memory bytecode = type(LiquidityMiningContract).creationCode;
         bytes32 salt = keccak256(abi.encodePacked(token0, token1));
         assembly {
             pair := create2(0, add(bytecode, 32), mload(bytecode), salt)
         }
         LiquidityMiningContract(pair).initialize(token0, token1, lockupInterval, lockupDuration);
-        getPair[token0][token1] = pair;
-        getPair[token1][token0] = pair; // populate mapping in the reverse direction
+        getPair[token0][token1][lockupDuration] = pair;
+        getPair[token1][token0][lockupDuration] = pair; // populate mapping in the reverse direction
         allPairs.push(pair);
         pairCreator[pair] = msg.sender;
         
         pairTokens[pair].token0 = token0;
         pairTokens[pair].token1 = token1;
+        pairTokens[pair].lockupDuration = lockupDuration;
         emit PairCreated(token0, token1, pair, allPairs.length);
     }
     

@@ -31,5 +31,5 @@ contract ERC20Mintable is ERC20Upgradeable {
     function mint(address account, uint256 amount) public virtual {
         _mint(account, amount);
     }
-    
+ 
 }
